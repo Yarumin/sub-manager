@@ -3,7 +3,7 @@
  * v1.0.0
  *
  * Author: Yasin (github.com/Yarumin)
- * Repository: https://github.com/Yarumin
+ * Repository: https://github.com/Yarumin/sub-manager
  *
  * A single-file Cloudflare Worker that manages proxy subscription links
  * (VLESS / Trojan / VMess / Shadowsocks) for Xray-core based clients. Each
