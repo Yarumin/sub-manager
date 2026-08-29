@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sub-manager",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-27",
+  "kv_namespaces": [
+    {
+      "binding": "SUB_DB",
+      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+    }
+  ]
+}

@@ -1,24 +1,14 @@
-# Environment variables
-.env
-.env.local
-
-# Node
 node_modules/
-package-lock.json
+dist/
+.wrangler/
+*.log
+npm-debug.log*
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+.vscode/*
+!.vscode/extensions.json
 
-# OS files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Backup files
-*.bak
-*.json.bak
+.env
+.env.local

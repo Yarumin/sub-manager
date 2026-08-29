@@ -1,0 +1,18 @@
+{
+  "name": "sub-manager",
+  "version": "1.0.0",
+  "description": "Subscription Manager - Cloudflare Worker",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "wrangler": "^4.0.0"
+  }
+}
