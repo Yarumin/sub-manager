@@ -2,7 +2,7 @@
 
 <p align="center">A panel for managing proxy subscriptions and configs on Cloudflare Workers</p>
 
-<p align="center"><a href="README_fa.md">فارسی</a></p>
+<p align="center"><a href="README_fa.md">Readme in Farsi</a></p>
 
 <br>
 
