@@ -2,61 +2,51 @@
 
 <p align="center">A panel for managing proxy subscriptions and configs on Cloudflare Workers</p>
 
-### 🌏 Readme in Farsi: <a href="README_fa.md">README_fa.md</a>
+<p align="center"><a href="README_fa.md">فارسی</a></p>
 
 <br>
 
-## Overview
-
-Sub Manager is a self-hosted panel for aggregating proxy subscriptions and configs (VLESS, Trojan, Shadowsocks, VMess) into a single output link, with per-config processing applied on top — clean-IP substitution, port filtering, upload-boost, and more. It runs as a single Cloudflare Worker backed by one KV namespace, with no external server, database, or cost beyond Cloudflare's free tier for typical personal use.
+Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Trojan, Shadowsocks, VMess) into a single output link, applying per-config processing such as clean-IP substitution, port filtering, and TLS adjustments along the way. It runs as a single Cloudflare Worker with one KV namespace for storage.
 
 ## Features
 
-- **Multi-source aggregation** — combine subscription URLs and manually-pasted configs into one output.
-- **Clean-IP substitution** — swap each config's address for one from a managed IP list, in `multiply` mode (one output config per IP) or `random` mode (one random IP per config).
-- **Per-part configuration** — each source, or each URL within a source, has independent settings: clean-IP list, port filtering, one-config-per-port, and Cloudflare-range restriction.
-- **Self-refreshing sources** — each URL source refreshes on its own interval, triggered lazily on the next client request past due time. No Cron Trigger is required, though one can be added for proactive background refresh.
-- **Backup / restore** — export sources, clean-IP lists, and Cloudflare connections to a single JSON file; re-import later in merge or replace mode.
-- **Cloudflare usage stats** — optionally attach a Cloudflare API token to show the Worker's daily request count in the panel.
-- **Upload-boost** — sets TLS `fingerprint` and `cipherSuites` on VLESS/Trojan configs, based on the method from [Patterniha](https://github.com/patterniha)'s [v2rayNG pull request](https://github.com/2dust/v2rayNG/pull/5900).
-- **Per-config controls** — rename, reorder, and temporarily disable individual configs within a source without deleting them.
+- Merges multiple subscription URLs and manual configs into one output.
+- Substitutes each config's address with a clean IP from a managed list, either multiplying across every IP or picking one at random per config.
+- Per-source and per-URL settings: clean-IP list, port filtering, one-config-per-port, restricting substitution to Cloudflare's known IP ranges.
+- Auto-refreshes each URL source on its own interval, triggered on the next request past due time — no Cron Trigger required.
+- Exports and imports sources, clean-IP lists, and Cloudflare connections as a single JSON backup, with merge or replace options.
+- Shows the Worker's daily request count in the panel, if a Cloudflare API token is connected.
+- Upload-boost: sets TLS fingerprint and cipher suites on VLESS/Trojan configs, using the method [Patterniha](https://github.com/patterniha) contributed to v2rayNG in [PR #5900](https://github.com/2dust/v2rayNG/pull/5900).
+- Rename, reorder, or temporarily disable individual configs without deleting them.
 
 ## Limitations
 
-- Not a proxy implementation — the Worker doesn't handle VLESS/Trojan/Shadowsocks traffic itself. It only stores, merges, and republishes configs that already point to a working upstream.
-- Cloudflare's free plan includes 100,000 KV reads and 1,000 KV writes per day, shared across the entire Worker. Sufficient for personal use; a factor if serving a large number of subscription requests.
-- Each part (a URL, or the manual-configs group) holds at most 1,000 base configs. After clean-IP multiplication, a part's final output is capped at 6,000 lines; configs beyond that are randomly sampled rather than all included.
-- Fetching a subscription URL times out after 15 seconds; unreachable or slow sources are marked failed rather than blocking the request.
+- Not a proxy implementation — the Worker doesn't handle VLESS/Trojan/Shadowsocks traffic itself; it only stores, merges, and republishes configs that point to a working destination.
+- Cloudflare's free plan includes 100,000 KV reads and 1,000 KV writes per day, shared across the Worker. Sufficient for personal use.
+- Each part holds up to 1,000 base configs; after clean-IP multiplication, output is capped at 6,000 lines per part, with excess sampled at random.
+- Subscription URL fetches time out after 15 seconds; unreachable sources are marked as failed.
 
-## Deploy
+## Deployment
 
-Requires only a free Cloudflare account.
+Requires a free Cloudflare account.
 
-1. **Create a KV namespace.** Cloudflare dashboard → **Workers & Pages** → **KV** → **Create namespace**. The name is arbitrary, e.g. `sub-manager-db`.
-2. **Create a Worker.** **Workers & Pages** → **Create** → **Workers**, enter a name, then **Deploy**. The default template code is overwritten in step 4.
-3. **Bind the KV namespace.** Open the Worker → **Settings** → **Bindings** → **Add binding** → **KV namespace**. Set **Variable name** to exactly `SUB_DB`, select the namespace created in step 1, then **Save**.
-4. **Deploy the code.** Download `worker.js` from [Releases](https://github.com/Yarumin/sub-manager/releases). Open the Worker's **Edit code** view, replace the existing contents with the downloaded file, then **Deploy**.
-5. **Set the admin password.** Worker → **Settings** → **Variables and Secrets** → **Add**. Type: **Secret**, name: `ADMIN_PASSWORD`, value: a password of your choice. **Save and deploy**.
+Create a new Worker and download `worker.js` from [Releases](https://github.com/Yarumin/sub-manager/releases), then deploy it to that Worker.
 
-   > If `ADMIN_PASSWORD` is not set, the panel falls back to the default password `admin123` and displays a warning banner until a Secret is configured. The default is intended for a first look only.
+From **Storage & Databases → Workers KV**, create a KV namespace with any name you like.
 
-6. Navigate to `https://<worker-name>.<subdomain>.workers.dev/app` and sign in to start adding sources.
+In the Worker's settings, go to **Bindings** and add a KV binding named exactly `SUB_DB`, pointing to the namespace created in the previous step. Then go back to **Settings → Variables and Secrets** and add a secret named `ADMIN_PASSWORD` with a password of your choice, and deploy. Without this step, the panel runs on the default password `admin123` and shows a warning until a real one is set. (If the password doesn't seem to work, try changing the Worker's Compatibility Date to `2026-08-04`.)
 
-No further configuration is required.
+The panel is available by adding `/app` to the end of the Worker's URL (`https://<worker-name>.<subdomain>.workers.dev/app`).
 
-### Updating to a new release
+A Cron Trigger is optional. Without one, a client always gets the previously cached output, and an overdue source only refreshes in the background after that request, so the update shows up on the next fetch. With a Cron Trigger, sources refresh on their own schedule in the background, so the cached output is more likely to already be current when a client asks for it. It can be added under **Settings → Triggers**, for example with the schedule `0 * * * *` for once an hour.
 
-Repeating steps 4 and, if needed, 5 is sufficient — replacing the Worker's code does not affect data already stored in the KV namespace (sources, clean-IP lists, Cloudflare connections).
-
-### Optional: Cron Trigger
-
-Sources already refresh on the next request past their due time. A Cron Trigger additionally makes that refresh happen proactively in the background: Worker → **Settings** → **Triggers** → **Cron Triggers** → **Add Cron Trigger**, e.g. `0 * * * *` for hourly.
+Updating to a new version only requires repeating the deploy step with the new `worker.js`; data already stored in KV is unaffected.
 
 ## Building from source
 
-Building the Worker file locally, or deploying directly from the modular source with [Wrangler](https://developers.cloudflare.com/workers/wrangler/), is documented in [README_fa.md](README_fa.md#اجرا-از-روی-سورس). The commands are language-independent; downloading the pre-built `worker.js` from [Releases](https://github.com/Yarumin/sub-manager/releases) is sufficient for most users.
+Downloading `worker.js` from Releases is sufficient for most users. For building locally or deploying with Wrangler, see [README_fa.md](README_fa.md) — the commands are the same regardless of language.
 
-## Project structure
+## Code layout
 
 ```
 src/
@@ -66,16 +56,13 @@ src/
   authz/             session, password verification, login rate-limit
   configEngine/      config parsing, fingerprinting, output generation
   storage/           KV read/write, backup import/export
-  sync/              subscription fetching and auto-refresh
+  sync/              subscription fetching, auto-refresh
   api/               /api/* route handlers
   publicApi/         /sub/{slug} public endpoint
-  panel/             admin panel HTML + client-side script
+  panel/             admin panel HTML and client script
 scripts/
   build.mjs          bundles src/ into dist/worker.js
-wrangler.jsonc       config for `wrangler dev` / `wrangler deploy`
 ```
-
----
 
 ## License
 
