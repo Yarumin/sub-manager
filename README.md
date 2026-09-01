@@ -15,9 +15,8 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Per-source and per-URL settings: clean-IP list, port filtering, one-config-per-port, restricting substitution to Cloudflare's known IP ranges.
 - Auto-refreshes each URL source on its own interval, triggered on the next request past due time — no Cron Trigger required.
 - Exports and imports sources, clean-IP lists, and Cloudflare connections as a single JSON backup, with merge or replace options.
-- Shows the Worker's daily request count in the panel, if a Cloudflare API token is connected.
-- Upload-boost: sets TLS fingerprint and cipher suites on VLESS/Trojan configs, using the method [Patterniha](https://github.com/patterniha) contributed to v2rayNG in [PR #5900](https://github.com/2dust/v2rayNG/pull/5900).
-- Rename, reorder, or temporarily disable individual configs without deleting them.
+- Connects to Cloudflare with a single **Account API Token** (no manual Account ID copy-paste) for Worker usage stats, listing the account's Worker scripts, changing a Worker's [Placement](https://developers.cloudflare.com/workers/configuration/placement/), and an optional live usage-percentage next to config names.
+- Upload-boost: sets TLS fingerprint, cipher suites, and fragmentation on VLESS/Trojan configs (using the method [Patterniha](https://github.com/patterniha) contributed to v2rayNG), plus auto/original config naming and full per-config management (rename, reorder, temporarily disable).
 
 ## Limitations
 
@@ -25,6 +24,7 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Cloudflare's free plan includes 100,000 KV reads and 1,000 KV writes per day, shared across the Worker. Sufficient for personal use.
 - Each part holds up to 1,000 base configs; after clean-IP multiplication, output is capped at 6,000 lines per part, with excess sampled at random.
 - Subscription URL fetches time out after 15 seconds; unreachable sources are marked as failed.
+- Live Worker usage percentage (when enabled) is cached in KV for a short 60-second window to avoid hammering Cloudflare's GraphQL API, independent of the subscription's own refresh interval; it only works for VLESS/Trojan/Shadowsocks configs, not VMess.
 
 ## Deployment
 

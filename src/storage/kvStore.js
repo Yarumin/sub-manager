@@ -6,7 +6,11 @@ import {
   MAX_AUTO_REFRESH_MINUTES,
   DEFAULT_UPLOAD_BOOST_FINGERPRINT,
   DEFAULT_UPLOAD_BOOST_CIPHER_SUITES,
-  DEFAULT_UPLOAD_BOOST_FRAGMENT_MASK
+  DEFAULT_UPLOAD_BOOST_FRAGMENT_MASK,
+  DEFAULT_UPLOAD_BOOST_PROTOCOLS,
+  DEFAULT_NAME_MODE_URL,
+  DEFAULT_NAME_MODE_MANUAL,
+  NAME_MODE_ORIGINAL
 } from "../constants.js";
 
 export async function getSettings(env) {
@@ -44,6 +48,13 @@ export function clampAutoRefreshMinutes(value) {
 
 export function normalizeSourceShape(source) {
   if (!source.slug) source.slug = source.id;
+  // v1.1.0 source-level display settings (config naming was already fixed
+  // per-part in 1.0.0 data; these two are new and apply to every
+  // cloudflare-category config in the source).
+  if (typeof source.emojiEnabled !== "boolean") source.emojiEnabled = true;
+  if (typeof source.usagePercentEnabled !== "boolean") source.usagePercentEnabled = false;
+  if (typeof source.usagePercentCfConnectionId !== "string") source.usagePercentCfConnectionId = null;
+  if (typeof source.usagePercentScriptName !== "string") source.usagePercentScriptName = null;
   (source.parts || []).forEach((part) => {
     if (part.kind === "url") {
       if (part.autoRefreshEnabled === undefined) part.autoRefreshEnabled = true;
@@ -59,6 +70,18 @@ export function normalizeSourceShape(source) {
     if (typeof part.uploadBoostFingerprint !== "string") part.uploadBoostFingerprint = DEFAULT_UPLOAD_BOOST_FINGERPRINT;
     if (typeof part.uploadBoostCipherSuites !== "string") part.uploadBoostCipherSuites = DEFAULT_UPLOAD_BOOST_CIPHER_SUITES;
     if (typeof part.uploadBoostFragmentMask !== "string") part.uploadBoostFragmentMask = DEFAULT_UPLOAD_BOOST_FRAGMENT_MASK;
+    // v1.1.0: each layer is empty-string-means-disabled; only the protocol
+    // filter is a separate array field.
+    if (!Array.isArray(part.uploadBoostProtocols) || part.uploadBoostProtocols.length === 0) {
+      part.uploadBoostProtocols = DEFAULT_UPLOAD_BOOST_PROTOCOLS.slice();
+    }
+    // Per-part naming mode: "auto" generates sequential names, "original"
+    // keeps each config's own embedded name. url parts default to auto,
+    // manual parts default to original.
+    if (part.nameMode !== NAME_MODE_ORIGINAL && part.nameMode !== "auto") {
+      part.nameMode = part.kind === "manual" ? DEFAULT_NAME_MODE_MANUAL : DEFAULT_NAME_MODE_URL;
+    }
+    if (typeof part.autoNumberEnabled !== "boolean") part.autoNumberEnabled = true;
   });
   return source;
 }

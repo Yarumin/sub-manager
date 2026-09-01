@@ -1,4 +1,10 @@
-import { MAX_URLS_PER_SOURCE, MAX_MANUAL_LINES_PER_ADD, SLUG_MIN_LENGTH, SLUG_MAX_LENGTH } from "../constants.js";
+import {
+  MAX_URLS_PER_SOURCE,
+  MAX_MANUAL_LINES_PER_ADD,
+  SLUG_MIN_LENGTH,
+  SLUG_MAX_LENGTH,
+  NAME_MODE_ORIGINAL
+} from "../constants.js";
 import { shortId, makeUniqueSlug } from "../utils/ids.js";
 import { isValidSlugFormat } from "../utils/slug.js";
 import { getSources, saveSources, getSettings } from "../storage/kvStore.js";
@@ -34,14 +40,19 @@ export async function handleAddSource(request, env) {
       parts: []
     };
     const explicitUseCleanIp = typeof data.useCleanIp === "boolean" ? data.useCleanIp : null;
+    // v1.1.0: naming mode is chosen up front, separately for the URL
+    // section and the manual section, since they default differently
+    // (url -> auto-generated names, manual -> keep original names).
+    const nameModeUrl = data.nameModeUrl === NAME_MODE_ORIGINAL ? NAME_MODE_ORIGINAL : "auto";
+    const nameModeManual = data.nameModeManual === "auto" ? "auto" : NAME_MODE_ORIGINAL;
     for (const url of urls) {
-      const part = makeNewPart("url", url, category);
+      const part = makeNewPart("url", url, category, nameModeUrl);
       if (explicitUseCleanIp !== null) part.useCleanIp = explicitUseCleanIp;
       newSource.parts.push(part);
       await fetchAndPopulatePart(part, false);
     }
     if (manualText) {
-      const manualPart = makeNewPart("manual", null, category);
+      const manualPart = makeNewPart("manual", null, category, nameModeManual);
       if (explicitUseCleanIp !== null) manualPart.useCleanIp = explicitUseCleanIp;
       newSource.parts.push(manualPart);
       populatePartConfigs(manualPart, extractConfigsFromText(manualText));
@@ -70,6 +81,38 @@ export async function handleDeleteSource(id, env) {
     return new Response(JSON.stringify({ success: true }));
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: "SOURCE_DELETE_FAILED" }), { status: 500 });
+  }
+}
+
+// v1.1.0: source-level display settings - the emoji toggle and the
+// "show live worker usage % in config names" toggle, both introduced as a
+// single collapsible block per subscription in the editor panel.
+export async function handleUpdateSourceDisplaySettings(sourceId, request, env) {
+  try {
+    const data = await request.json();
+    const sources = await getSources(env);
+    const source = sources.find((s) => s.id === sourceId);
+    if (!source) return new Response(JSON.stringify({ success: false, error: "SOURCE_NOT_FOUND" }), { status: 404 });
+    if (typeof data.emojiEnabled === "boolean") source.emojiEnabled = data.emojiEnabled;
+    if (typeof data.usagePercentEnabled === "boolean") source.usagePercentEnabled = data.usagePercentEnabled;
+    if (data.usagePercentEnabled) {
+      const cfConnectionId = typeof data.usagePercentCfConnectionId === "string" ? data.usagePercentCfConnectionId.trim() : "";
+      const scriptName = typeof data.usagePercentScriptName === "string" ? data.usagePercentScriptName.trim() : "";
+      if (!cfConnectionId || !scriptName) {
+        return new Response(JSON.stringify({ success: false, error: "USAGE_PERCENT_NEEDS_TARGET" }), { status: 400 });
+      }
+      source.usagePercentCfConnectionId = cfConnectionId;
+      source.usagePercentScriptName = scriptName;
+    } else if (data.usagePercentEnabled === false) {
+      source.usagePercentCfConnectionId = null;
+      source.usagePercentScriptName = null;
+    }
+    await saveSources(sources, env);
+    const settings = await getSettings(env);
+    await regenerateSourceOutput(source, settings, env);
+    return new Response(JSON.stringify({ success: true }));
+  } catch (e) {
+    return new Response(JSON.stringify({ success: false, error: "SOURCE_DISPLAY_SETTINGS_FAILED" }), { status: 500 });
   }
 }
 

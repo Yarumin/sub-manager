@@ -35,13 +35,20 @@ export async function handleGetState(env) {
       baseCount,
       finalCount,
       truncated,
-      partWarnings
+      partWarnings,
+      // v1.1.0 source-level display settings, shown/edited from the
+      // collapsible "تنظیمات نمایش" block in the source editor.
+      emojiEnabled: src.emojiEnabled !== false,
+      usagePercentEnabled: !!src.usagePercentEnabled,
+      usagePercentCfConnectionId: src.usagePercentCfConnectionId || null,
+      usagePercentScriptName: src.usagePercentScriptName || null
     });
   }
   const cfConnections = (settings.cfConnections || []).map((c) => ({
     id: c.id,
     label: c.label,
     accountId: c.accountId,
+    accountName: c.accountName || null,
     tokenPreview: c.apiToken ? "••••" + c.apiToken.slice(-4) : ""
   }));
   const cleanIpLists = settings.cleanIpLists.map((l) => ({ id: l.id, name: l.name, ips: l.ips, builtin: !!l.builtin }));

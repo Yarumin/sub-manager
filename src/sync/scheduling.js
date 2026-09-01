@@ -33,7 +33,12 @@ export async function regenerateSourceOutput(source, settings, env) {
     configs: (result.configs || []).join("\n"),
     partWarnings: result.partWarnings || [],
     nextAutoRefreshDueAt: computeNextAutoRefreshDueAt(source),
-    updateIntervalMinutes: computeSourceUpdateIntervalMinutes(source)
+    updateIntervalMinutes: computeSourceUpdateIntervalMinutes(source),
+    // v1.1.0: which Cloudflare connection+script (if any) the live
+    // usage-percentage sentinels in `configs` above should be resolved
+    // against. Travels with the cache so the public /sub/{slug} path never
+    // needs to load the full source object just to serve a request.
+    usagePercentTarget: result.usagePercentTarget || null
   };
   try {
     await env.SUB_DB.put(`out_${source.id}`, JSON.stringify(outputData));

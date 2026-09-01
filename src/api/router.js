@@ -1,6 +1,6 @@
 import { handleGetState } from "./stateApi.js";
 import { handleAddCleanIpList, handleUpdateCleanIpList, handleDeleteCleanIpList } from "./cleanIpApi.js";
-import { handleAddSource, handleDeleteSource, handleUpdateSourceSlug } from "./sourcesApi.js";
+import { handleAddSource, handleDeleteSource, handleUpdateSourceSlug, handleUpdateSourceDisplaySettings } from "./sourcesApi.js";
 import { handleUpdatePartSettings, handleDeletePartFromSource, handleSyncOneSource, handleGetSourceConfigs } from "./partsApi.js";
 import {
   handleAddConfigToPart,
@@ -11,7 +11,13 @@ import {
   handleSetConfigCustomName,
   handleDeleteConfigFromPart
 } from "./configsApi.js";
-import { handleAddCfConnection, handleDeleteCfConnection, handleGetCloudflareStats } from "./cfConnectionApi.js";
+import {
+  handleAddCfConnection,
+  handleDeleteCfConnection,
+  handleGetCloudflareStats,
+  handleListCfScripts,
+  handleSetCfPlacement
+} from "./cfConnectionApi.js";
 import { handleExportBackup, handleImportBackup } from "../storage/backupHandlers.js";
 import { processAllSubscriptions } from "../sync/syncEngine.js";
 
@@ -29,6 +35,9 @@ export async function handleApi(parts, request, env, ctx) {
   if (parts.length === 4 && parts[1] === "sources" && parts[3] === "slug" && method === "PUT") return await handleUpdateSourceSlug(parts[2], request, env);
   if (parts.length === 4 && parts[1] === "sources" && parts[3] === "sync" && method === "POST") return await handleSyncOneSource(parts[2], env);
   if (parts.length === 4 && parts[1] === "sources" && parts[3] === "configs" && method === "GET") return await handleGetSourceConfigs(parts[2], env);
+  if (parts.length === 4 && parts[1] === "sources" && parts[3] === "display-settings" && method === "PUT") {
+    return await handleUpdateSourceDisplaySettings(parts[2], request, env);
+  }
 
   if (parts.length === 5 && parts[1] === "sources" && parts[3] === "parts" && method === "PUT") return await handleUpdatePartSettings(parts[2], parts[4], request, env);
   if (parts.length === 5 && parts[1] === "sources" && parts[3] === "parts" && method === "DELETE") return await handleDeletePartFromSource(parts[2], parts[4], env);
@@ -63,6 +72,8 @@ export async function handleApi(parts, request, env, ctx) {
   if (parts.length === 2 && parts[1] === "cf-connections" && method === "POST") return await handleAddCfConnection(request, env);
   if (parts.length === 3 && parts[1] === "cf-connections" && method === "DELETE") return await handleDeleteCfConnection(parts[2], env);
   if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "stats" && method === "GET") return await handleGetCloudflareStats(parts[2], env);
+  if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "scripts" && method === "GET") return await handleListCfScripts(parts[2], env);
+  if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "placement" && method === "PUT") return await handleSetCfPlacement(parts[2], request, env);
 
   if (parts.length === 2 && parts[1] === "backup" && method === "GET") return await handleExportBackup(env, request);
   if (parts.length === 2 && parts[1] === "backup" && method === "POST") return await handleImportBackup(request, env, ctx);

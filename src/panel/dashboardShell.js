@@ -53,6 +53,10 @@ export function getDashboardHTML(baseUrl) {
 <div>
 <label class="block text-sm mb-2 text-gray-400">لینک‌های منبع (اختیاری - هر خط یک لینک)</label>
 <textarea class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 focus:outline-none focus:border-purple-500 text-sm font-mono" dir="ltr" id="sourceUrls" placeholder="https://...&#10;https://..." rows="3"></textarea>
+<label class="flex items-center gap-2 mt-2 cursor-pointer">
+<input class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600" id="nameModeUrlOriginal" type="checkbox"/>
+<span class="text-[11px] text-gray-500">به‌جای نام‌گذاری خودکار توسط پنل، نام اصلی کانفیگ‌ها حفظ شود</span>
+</label>
 </div>
 <div>
 <label class="block text-sm mb-2 text-gray-400">کانفیگ‌های مستقیم (اختیاری - هر خط یک کانفیگ)</label>
@@ -63,6 +67,10 @@ export function getDashboardHTML(baseUrl) {
 <span class="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full font-mono">Shadowsocks</span>
 <span class="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full font-mono">VMess</span>
 </div>
+<label class="flex items-center gap-2 mt-2 cursor-pointer" dir="rtl">
+<input checked class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600" id="nameModeManualOriginal" type="checkbox"/>
+<span class="text-[11px] text-gray-500">به‌جای نام‌گذاری خودکار توسط پنل، نام اصلی کانفیگ‌ها حفظ شود</span>
+</label>
 </div>
 <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-3">
 <div>
@@ -110,6 +118,7 @@ export function getDashboardHTML(baseUrl) {
 <p class="text-[11px] text-gray-500 mt-1.5">فقط حروف و عدد انگلیسی، خط تیره و زیرخط؛ بین ۴ تا ۳۲ کاراکتر.</p>
 </div>
 <p class="text-xs text-gray-500 mb-4">هر لینک/بخش کاملاً مستقل است و تنظیمات خودش را دارد؛ به‌روزرسانی خودکار هم برای هرکدام جداگانه تنظیم می‌شود. فهرست کانفیگ‌های هرکدام همیشه کامل و بدون فیلتر نمایش داده می‌شود؛ فیلترها فقط روی خروجی نهایی اثر می‌گذارند.</p>
+<div class="mb-4" id="editorDisplaySettingsContainer"></div>
 <div class="space-y-5" id="editorPartsContainer"></div>
 </div><div class="order-5 lg:order-none glass-panel p-6 rounded-2xl">
 <h2 class="text-lg font-bold mb-2 text-white flex items-center gap-2">
@@ -117,13 +126,13 @@ export function getDashboardHTML(baseUrl) {
                     اتصال به API کلودفلر
                 </h2>
 <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-3 mb-4 text-[11px] text-gray-400 leading-relaxed space-y-1">
-<strong class="block text-gray-300 mb-1">این بخش کاملاً اختیاری است و فقط برای دیدن آمار مصرف Workers است:</strong>
-<p>۱) روی دکمه‌ی «ساخت خودکار توکن در کلودفلر» بزنید.</p>
-<p>۲) در صفحه باز شده دکمه‌ی <b>Continue to summary</b> و بعد <b>Create Token</b> را بزنید و توکن را کپی کنید.</p>
-<p>۳) در داشبورد کلودفلر از بخش Workers &amp; Pages آیدی اکانت را پیدا و کپی کنید.</p>
-<p>۴) نام دلخواه، آیدی و توکن را در قسمت پایین وارد کرده و «افزودن و بررسی» را بزنید.</p>
+<strong class="block text-gray-300 mb-1">این بخش کاملاً اختیاری است - برای آمار مصرف Workers، درصد مصرف کنار نام کانفیگ‌ها، و تنظیم Placement:</strong>
+<p>۱) روی دکمه‌ی «ساخت خودکار توکن در کلودفلر» بزنید. یک صفحه با اکانت و مجوزهای از‌پیش‌انتخاب‌شده (شامل <b>Account Settings: Read</b>، <b>Account Analytics: Read</b>، <b>Workers Scripts: Write</b>) باز می‌شود.</p>
+<p>۲) روی <b>Review token</b> بزنید تا خلاصه‌ی توکن (Token Summary) را ببینید، سپس <b>Create Token</b> را بزنید.</p>
+<p>۳) در صفحه‌ی نهایی، هم <b>Account ID</b> و هم <b>API Token</b> نمایش داده می‌شوند - چون این توکن فقط همان لحظه نمایش داده می‌شود، هر دو را همان‌جا کپی و در قسمت پایین وارد کنید.</p>
+<p class="text-gray-500">در بیشتر موارد مجوز <b>Workers Scripts</b> به‌صورت خودکار اضافه می‌شود؛ اگر نشد، از بخش Custom Token آن را با سطح <b>Write</b> اضافه کنید تا لیست ورکرها و تغییر Placement کار کند (آمار کلی مصرف بدون آن هم کار می‌کند).</p>
 </div>
-<a class="w-full flex items-center justify-center gap-2 text-center bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 py-2.5 rounded-xl text-xs font-bold transition mb-4" href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&amp;accountId=*&amp;name=SubManager-Stats-Token" target="_blank">
+<a class="w-full flex items-center justify-center gap-2 text-center bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 py-2.5 rounded-xl text-xs font-bold transition mb-4" href="https://dash.cloudflare.com/?to=/:account/api-tokens&amp;permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%5D&amp;name=SubManager-Token" target="_blank">
 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
                     ساخت خودکار توکن در کلودفلر
                 </a>
@@ -228,9 +237,9 @@ export function getDashboardHTML(baseUrl) {
 </div>
 </div>
 </div></div><p class="text-center text-[11px] text-gray-600 mt-8">
-            ساخته شده توسط <bdi><a href="https://github.com/Yarumin" target="_blank" class="text-gray-500 hover:text-gray-300 transition">Yasin</a></bdi> &amp; <bdi><a href="https://claude.ai" target="_blank" class="text-gray-500 hover:text-gray-300 transition">Claude</a></bdi>
+            ساخته شده توسط <bdi><a href="https://github.com/Yarumin/sub-manager" target="_blank" class="text-gray-500 hover:text-gray-300 transition">Yasin</a></bdi> &amp; <bdi><a href="https://claude.ai" target="_blank" class="text-gray-500 hover:text-gray-300 transition">Claude</a></bdi>
             <span class="text-gray-700 mx-1">&middot;</span>
-            <bdi class="text-gray-600">v1.0.0</bdi>
+            <bdi class="text-gray-600">v1.1.0</bdi>
         </p>
     </div>
 

@@ -1,35 +1,40 @@
 import { shortId } from "../utils/ids.js";
 import { getSettings, saveSettings } from "../storage/kvStore.js";
 
-export async function validateCfConnection(accountId, apiToken) {
-  if (!accountId || !apiToken) return { ok: false, error: "CF_CREDENTIALS_REQUIRED" };
-  try {
-    const verifyResp = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
-      headers: { Authorization: `Bearer ${apiToken}` }
-    });
-    const verifyJson = await verifyResp.json().catch(() => null);
-    if (!verifyResp.ok || !verifyJson || verifyJson.success !== true) return { ok: false, error: "CF_TOKEN_INVALID" };
-    const acctResp = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}`, {
-      headers: { Authorization: `Bearer ${apiToken}` }
-    });
-    const acctJson = await acctResp.json().catch(() => null);
-    if (!acctResp.ok || !acctJson || acctJson.success !== true) return { ok: false, error: "CF_ACCOUNT_MISMATCH" };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: "CF_VALIDATION_FAILED" };
-  }
+// v1.1.0: the Cloudflare "Create Token" success screen shows both the
+// Account ID and the token side by side, both a single click to copy - so
+// there is no real time savings left in trying to auto-detect the account
+// from the token alone (and doing so needs the extra "Account Settings"
+// permission for no benefit). The panel simply asks for both, exactly as
+// Cloudflare presents them, and verifies the pair together in one call.
+async function verifyCfAccount(apiToken, accountId) {
+  const resp = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}`, {
+    headers: { Authorization: `Bearer ${apiToken}` }
+  });
+  const json = await resp.json().catch(() => null);
+  if (!resp.ok || !json || json.success !== true || !json.result) return null;
+  return { id: json.result.id, name: json.result.name || json.result.id };
 }
 
 export async function handleAddCfConnection(request, env) {
   try {
     const data = await request.json();
     const label = (data.label || "").trim() || "اکانت کلودفلر";
-    const accountId = (data.accountId || "").trim();
     const apiToken = (data.apiToken || "").trim();
-    const validation = await validateCfConnection(accountId, apiToken);
-    if (!validation.ok) return new Response(JSON.stringify({ success: false, error: validation.error }), { status: 400 });
+    const accountId = (data.accountId || "").trim();
+    if (!apiToken || !accountId) return new Response(JSON.stringify({ success: false, error: "CF_CREDENTIALS_REQUIRED" }), { status: 400 });
+
+    const account = await verifyCfAccount(apiToken, accountId);
+    if (!account) return new Response(JSON.stringify({ success: false, error: "CF_TOKEN_INVALID" }), { status: 400 });
+
     const settings = await getSettings(env);
-    settings.cfConnections.push({ id: shortId(), label, accountId, apiToken });
+    settings.cfConnections.push({
+      id: shortId(),
+      label,
+      accountId: account.id,
+      accountName: account.name,
+      apiToken
+    });
     await saveSettings(settings, env);
     return new Response(JSON.stringify({ success: true }));
   } catch (e) {
@@ -78,5 +83,89 @@ export async function handleGetCloudflareStats(connectionId, env) {
     return new Response(JSON.stringify({ requests: stats.requests, label: conn.label }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: "اتصال به کلودفلر برقرار نشد." }), { status: 500 });
+  }
+}
+
+// v1.1.0: list the account's Worker scripts, so the panel can offer a
+// dropdown instead of asking the user to type a script name from memory.
+// Requires the connection's token to have "Workers Scripts" (Edit or Read).
+export async function handleListCfScripts(connectionId, env) {
+  const settings = await getSettings(env);
+  const conn = settings.cfConnections.find((c) => c.id === connectionId);
+  if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
+  try {
+    const resp = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(conn.accountId)}/workers/scripts`, {
+      headers: { Authorization: `Bearer ${conn.apiToken}` }
+    });
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.success !== true) {
+      const message = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
+      return new Response(JSON.stringify({ success: false, error: "CF_SCRIPTS_LIST_FAILED", message }), { status: 502 });
+    }
+    const scripts = (json.result || []).map((s) => ({ name: s.id }));
+    return new Response(JSON.stringify({ success: true, scripts }), { status: 200, headers: { "Content-Type": "application/json" } });
+  } catch (e) {
+    return new Response(JSON.stringify({ success: false, error: "CF_SCRIPTS_LIST_FAILED" }), { status: 500 });
+  }
+}
+
+// v1.1.0: set (or reset) a Worker's Placement, matching the community
+// "region hint" trick (Settings > Runtime > Placement > Region in the
+// Cloudflare dashboard) - this is a real, documented Cloudflare feature
+// (Placement Hints), not a workaround this panel invented.
+// CONFIRMED LIMITATION: resetting placement back to default via
+// {mode: "off"} is rejected by Cloudflare's API ("invalid placement mode:
+// off") - this is a known bug on Cloudflare's side (their own dashboard hits
+// the same error in some cases), not something fixable from this panel. See
+// the user-facing message built below for what to tell the user when it
+// happens.
+export async function handleSetCfPlacement(connectionId, request, env) {
+  try {
+    const data = await request.json();
+    const scriptName = (data.scriptName || "").trim();
+    const mode = data.mode === "smart" ? "smart" : data.mode === "off" ? "off" : null;
+    const region = typeof data.region === "string" ? data.region.trim() : "";
+    if (!scriptName) return new Response(JSON.stringify({ success: false, error: "CF_SCRIPT_NAME_REQUIRED" }), { status: 400 });
+    if (!mode && !region) return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_INVALID" }), { status: 400 });
+
+    const settings = await getSettings(env);
+    const conn = settings.cfConnections.find((c) => c.id === connectionId);
+    if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
+
+    const placement = region ? { region } : { mode };
+    // This endpoint only accepts multipart/form-data with a "settings" part
+    // (confirmed against real-world Cloudflare API behavior - a JSON body
+    // is rejected with "Content-Type must be one of: multipart/form-data").
+    // The Content-Type header must NOT be set manually: fetch() needs to
+    // generate it itself so it includes the multipart boundary parameter -
+    // setting it by hand (even to "multipart/form-data") produces a
+    // boundary-less header that Cloudflare also rejects.
+    const form = new FormData();
+    form.set("settings", JSON.stringify({ placement }));
+    const resp = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(conn.accountId)}/workers/scripts/${encodeURIComponent(scriptName)}/settings`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${conn.apiToken}` },
+        body: form
+      }
+    );
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.success !== true) {
+      const rawMessage = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
+      // "mode: off" is not actually accepted by Cloudflare's API - this is a
+      // confirmed, known limitation (Cloudflare's own dashboard hits the
+      // same "invalid placement mode" error in some cases when resetting to
+      // Default). Give a clear, specific explanation instead of the raw
+      // cryptic API error, so the user knows this isn't a bug in the panel.
+      const message =
+        mode === "off" && rawMessage && /invalid placement mode/i.test(rawMessage)
+          ? "کلودفلر برگرداندن Placement به پیش‌فرض را از طریق API رد کرد - این یک محدودیت شناخته‌شده در خودِ API کلودفلر است (گاهی حتی از داشبورد رسمی هم همین خطا رخ می‌دهد)، نه ایرادی از پنل. برای بازگشت به پیش‌فرض باید از داشبورد کلودفلر اقدام کنید: Workers & Pages ← ورکر موردنظر ← Settings ← Runtime ← Placement ← Default."
+          : rawMessage;
+      return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_UPDATE_FAILED", message }), { status: 502 });
+    }
+    return new Response(JSON.stringify({ success: true, placement: (json.result && json.result.placement) || placement }));
+  } catch (e) {
+    return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_UPDATE_FAILED" }), { status: 500 });
   }
 }

@@ -79,7 +79,10 @@ export function tryParseVmessLegacy(raw) {
       protocol: "vmess",
       isTls,
       obj,
-      fingerprint: buildVmessFingerprint(obj)
+      fingerprint: buildVmessFingerprint(obj),
+      // Original display name as embedded by whoever generated this config,
+      // used when a part's nameMode is "original" (see configEngine/part.js).
+      originalName: typeof obj.ps === "string" && obj.ps ? obj.ps : null
     };
   } catch (e) {
     return null;
@@ -99,12 +102,24 @@ export function parseOneConfigLine(rawLine) {
       const params = new URLSearchParams(url.search);
       const security = params.get("security");
       const isTls = protocol === "trojan" || security === "tls" || security === "reality";
+      // The URI "hash" (#...) is the display name in every VLESS/Trojan/SS
+      // client - decode it the same way clients do, so "original" naming
+      // mode can reuse it verbatim.
+      let originalName = null;
+      if (url.hash && url.hash.length > 1) {
+        try {
+          originalName = decodeURIComponent(url.hash.slice(1)) || null;
+        } catch (e) {
+          originalName = url.hash.slice(1) || null;
+        }
+      }
       return {
         kind: "uri",
         protocol,
         isTls,
         uri: line,
-        fingerprint: buildUriFingerprint(url)
+        fingerprint: buildUriFingerprint(url),
+        originalName
       };
     } catch (e) {
       return null;

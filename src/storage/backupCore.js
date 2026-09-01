@@ -6,6 +6,10 @@ import {
   DEFAULT_UPLOAD_BOOST_FINGERPRINT,
   DEFAULT_UPLOAD_BOOST_CIPHER_SUITES,
   DEFAULT_UPLOAD_BOOST_FRAGMENT_MASK,
+  DEFAULT_UPLOAD_BOOST_PROTOCOLS,
+  DEFAULT_NAME_MODE_URL,
+  DEFAULT_NAME_MODE_MANUAL,
+  NAME_MODE_ORIGINAL,
   MAX_BASE_CONFIGS_PER_PART,
   MAX_CUSTOM_NAME_LENGTH
 } from "../constants.js";
@@ -46,6 +50,8 @@ export function revalidateImportedConfig(c) {
   if (!rebuilt) return null;
   rebuilt.configId = typeof c.configId === "string" && c.configId ? c.configId : shortId();
   if (c.customName) rebuilt.customName = String(c.customName).trim().slice(0, MAX_CUSTOM_NAME_LENGTH) || undefined;
+  // originalName is re-derived by parseOneConfigLine/tryParseVmessLegacy
+  // above already; nothing extra to restore here.
   return rebuilt;
 }
 
@@ -61,6 +67,11 @@ export function normalizeImportedBackup(raw) {
       name: typeof s.name === "string" ? s.name : "منبع بازیابی‌شده",
       createdAt: typeof s.createdAt === "string" ? s.createdAt : new Date().toISOString(),
       lastSync: typeof s.lastSync === "string" ? s.lastSync : null,
+      // v1.1.0 source-level display settings.
+      emojiEnabled: typeof s.emojiEnabled === "boolean" ? s.emojiEnabled : true,
+      usagePercentEnabled: !!(s.usagePercentEnabled && typeof s.usagePercentCfConnectionId === "string" && typeof s.usagePercentScriptName === "string"),
+      usagePercentCfConnectionId: typeof s.usagePercentCfConnectionId === "string" ? s.usagePercentCfConnectionId : null,
+      usagePercentScriptName: typeof s.usagePercentScriptName === "string" ? s.usagePercentScriptName : null,
       parts: Array.isArray(s.parts)
         ? s.parts
             .filter((p) => p && typeof p === "object" && typeof p.id === "string")
@@ -94,6 +105,12 @@ export function normalizeImportedBackup(raw) {
                 uploadBoostFingerprint: typeof p.uploadBoostFingerprint === "string" ? p.uploadBoostFingerprint : DEFAULT_UPLOAD_BOOST_FINGERPRINT,
                 uploadBoostCipherSuites: typeof p.uploadBoostCipherSuites === "string" ? p.uploadBoostCipherSuites : DEFAULT_UPLOAD_BOOST_CIPHER_SUITES,
                 uploadBoostFragmentMask: typeof p.uploadBoostFragmentMask === "string" ? p.uploadBoostFragmentMask : DEFAULT_UPLOAD_BOOST_FRAGMENT_MASK,
+                uploadBoostProtocols:
+                  Array.isArray(p.uploadBoostProtocols) && p.uploadBoostProtocols.length > 0
+                    ? p.uploadBoostProtocols.filter((x) => x === "vless" || x === "trojan")
+                    : DEFAULT_UPLOAD_BOOST_PROTOCOLS.slice(),
+                nameMode: p.nameMode === NAME_MODE_ORIGINAL || p.nameMode === "auto" ? p.nameMode : kind === "manual" ? DEFAULT_NAME_MODE_MANUAL : DEFAULT_NAME_MODE_URL,
+                autoNumberEnabled: typeof p.autoNumberEnabled === "boolean" ? p.autoNumberEnabled : true,
                 truncated: !!p.truncated,
                 lastFetchOk: typeof p.lastFetchOk === "boolean" ? p.lastFetchOk : null,
                 lastFetchedAt: typeof p.lastFetchedAt === "string" ? p.lastFetchedAt : null
@@ -130,6 +147,7 @@ export function normalizeImportedBackup(raw) {
             id: c.id,
             label: typeof c.label === "string" ? c.label : "اکانت کلودفلر",
             accountId: typeof c.accountId === "string" ? c.accountId : "",
+            accountName: typeof c.accountName === "string" ? c.accountName : null,
             apiToken: typeof c.apiToken === "string" ? c.apiToken : ""
           }))
       : []
