@@ -15,7 +15,7 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Per-source and per-URL settings: clean-IP list, port filtering, one-config-per-port, restricting substitution to Cloudflare's known IP ranges.
 - Auto-refreshes each URL source on its own interval, triggered on the next request past due time — no Cron Trigger required.
 - Exports and imports sources, clean-IP lists, and Cloudflare connections as a single JSON backup, with merge or replace options.
-- Connects to Cloudflare with a single **Account API Token** (no manual Account ID copy-paste) for Worker usage stats, listing the account's Worker scripts, changing a Worker's [Placement](https://developers.cloudflare.com/workers/configuration/placement/), and an optional live usage-percentage next to config names.
+- Connects to Cloudflare with a single **Account API Token** for Worker usage stats, listing the account's Worker scripts, changing a Worker's [Placement](https://developers.cloudflare.com/workers/configuration/placement/), and an optional live usage-percentage next to config names.
 - Upload-boost: sets TLS fingerprint, cipher suites, and fragmentation on VLESS/Trojan configs (using the method [Patterniha](https://github.com/patterniha) contributed to v2rayNG), plus auto/original config naming and full per-config management (rename, reorder, temporarily disable).
 
 ## Limitations
