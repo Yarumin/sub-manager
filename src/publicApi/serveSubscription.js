@@ -22,24 +22,28 @@ export async function resolveSourceIdFromToken(token, env) {
 // lazy auto-refresh interval (the admin can wait up to 24h for source
 // content to refresh, but wants the usage number close to real-time) - a
 // short KV cache is used only to avoid hammering Cloudflare's GraphQL API
-// and slowing down every single client subscription request.
+// and slowing down every single client subscription request. Never
+// consulted by the admin panel's own sync actions, which always fetch live.
 async function getCachedUsagePercent(target, env) {
-  const cacheKey = `usagepct_${target.cfConnectionId}_${target.scriptName}`;
+  const kvKey = `usagepct_${target.cfConnectionId}_${target.scriptName}`;
   try {
-    const cached = await env.SUB_DB.get(cacheKey);
+    const cached = await env.SUB_DB.get(kvKey);
     if (cached !== null) return cached;
   } catch (e) {
-    /* cache read failed - fall through to a live fetch */
+    /* KV cache read failed - fall through to a live fetch */
   }
+
   const percent = await fetchLiveUsagePercent(target, env);
   if (percent !== null) {
+    const percentStr = String(percent);
     try {
-      await env.SUB_DB.put(cacheKey, String(percent), { expirationTtl: USAGE_PERCENT_CACHE_SECONDS });
+      await env.SUB_DB.put(kvKey, percentStr, { expirationTtl: USAGE_PERCENT_CACHE_SECONDS });
     } catch (e) {
-      /* cache write failed - not fatal, next request just fetches live again */
+      /* KV cache write failed - not fatal, next request just fetches live again */
     }
+    return percentStr;
   }
-  return percent === null ? null : String(percent);
+  return null;
 }
 
 async function fetchLiveUsagePercent(target, env) {

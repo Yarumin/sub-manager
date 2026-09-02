@@ -198,10 +198,21 @@ export const USAGE_PERCENT_SENTINEL = "SmUsagePct7f2b9c";
 
 // How long a live-fetched usage percentage may be reused for further
 // /sub/{slug} requests before being re-fetched from Cloudflare's GraphQL
-// analytics API. This is a safety net against hammering Cloudflare's API
-// (and against slowing down every single client poll) while still staying
-// close to "live" as requested - NOT tied to the source's own
-// auto-refresh interval.
+// analytics API. This ONLY affects the public client-facing subscription
+// path - it is never consulted by the admin panel's own manual/auto sync
+// (see sync/syncEngine.js, api/partsApi.js), which always reflect the
+// panel's own actions immediately.
+//
+// This is Cloudflare KV's own documented minimum TTL
+// (https://developers.cloudflare.com/kv/api/write-key-value-pairs/) - a
+// lower value makes the KV write throw on every request. A shorter,
+// Worker-isolate-local (in-memory) cache was considered too, but dropped:
+// since isolates are not shared across requests/locations, it cannot
+// actually guarantee a tighter bound in the worst case (a request landing
+// on a different isolate each time gets no benefit from it at all) - it
+// would only add complexity without a reliable improvement. KV, though
+// slower, is shared globally and gives a real, consistent 60s cap on how
+// often Cloudflare's GraphQL API gets called for a given worker script.
 export const USAGE_PERCENT_CACHE_SECONDS = 60;
 
 // Same free-plan daily invocation cap used by the existing account-wide

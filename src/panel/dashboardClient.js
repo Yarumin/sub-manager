@@ -66,8 +66,17 @@ function uploadBoostFieldHtml(field, partId, currentValue, labelText) {
   var isRandom = (currentValue || "").trim().toLowerCase() === "random";
   var textValue = isRandom ? "" : currentValue || "";
   var presets = field === "fp" ? UPLOAD_BOOST_FP_PRESETS_CLIENT : field === "cs" ? UPLOAD_BOOST_CS_PRESETS_CLIENT : UPLOAD_BOOST_FM_PRESETS_CLIENT;
-  var optionsHtml = '<option value="">-- انتخاب سریع از پیش‌فرض‌ها --</option>' + presets.map(function(p) {
-    return '<option value="' + escapeHtml(p.value !== undefined ? p.value : p.key) + '">' + escapeHtml(p.label) + "</option>";
+  var matchedPreset = presets.find(function(p) {
+    return (p.value !== undefined ? p.value : p.key) === textValue;
+  });
+  var placeholderLabel = matchedPreset ? "-- سفارشی (مقدار وارد شده با هیچ پیش‌فرضی مطابقت ندارد) --" : "-- انتخاب سریع از پیش‌فرض‌ها --";
+  // The placeholder option is re-labeled "custom" once a non-preset value is
+  // present, and re-selected, so the dropdown always reflects reality
+  // instead of silently reverting to "-- quick pick --" after a preset (or
+  // a hand-typed value) is already in the text field.
+  var optionsHtml = '<option value=""' + (matchedPreset ? "" : " selected") + ">" + placeholderLabel + "</option>" + presets.map(function(p) {
+    var value = p.value !== undefined ? p.value : p.key;
+    return '<option value="' + escapeHtml(value) + '"' + (matchedPreset && value === textValue ? " selected" : "") + ">" + escapeHtml(p.label) + "</option>";
   }).join("");
   var fieldId = "uploadBoost" + field.toUpperCase() + "-" + partId;
   var selectId = "uploadBoost" + field.toUpperCase() + "Select-" + partId;
@@ -75,20 +84,34 @@ function uploadBoostFieldHtml(field, partId, currentValue, labelText) {
   var textFieldHtml = field === "fp"
     ? '<input id="' + fieldId + '" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs mt-1.5" dir="ltr" value="' + escapeHtml(textValue) + '"' + (isRandom ? " disabled" : "") + ">"
     : '<textarea id="' + fieldId + '" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[10px] mt-1.5" dir="ltr" rows="' + (field === "fm" ? 3 : 2) + '"' + (isRandom ? " disabled" : "") + ">" + escapeHtml(textValue) + "</textarea>";
+  // fp/cs randomize by picking one of a fixed list of valid presets on
+  // every sync; fm randomize by generating a fresh set of numeric
+  // parameters (within vetted ranges) on every sync instead - these are
+  // genuinely different mechanisms, so the checkbox label says which one.
+  var randomLabel = field === "fm"
+    ? "تصادفی (هر بار همگام‌سازی، پنل خودش با الگوریتم داخلی مقادیر عددی جدید تولید می‌کند)"
+    : "تصادفی (هر بار همگام‌سازی، یکی از مقادیر پیشنهادی بالا به‌صورت شانسی انتخاب می‌شود)";
   return (
     '<div><label class="block text-[10px] mb-1 text-gray-400">' + labelText + "</label>" +
     '<select class="upload-boost-preset-select w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs" dir="ltr" data-field="' + fieldId + '"' + (isRandom ? " disabled" : "") + ' id="' + selectId + '">' + optionsHtml + "</select>" +
     textFieldHtml +
-    '<label class="flex items-center gap-2 cursor-pointer mt-1.5"><input type="checkbox" class="upload-boost-random-cb h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600" data-select="' + selectId + '" data-field="' + fieldId + '" id="' + randomId + '"' + (isRandom ? " checked" : "") + '><span class="text-[10px] text-gray-500">تصادفی (هر بار همگام‌سازی، یک مقدار معتبر جدید انتخاب می‌شود)</span></label>' +
+    '<label class="flex items-center gap-2 cursor-pointer mt-1.5"><input type="checkbox" class="upload-boost-random-cb h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600" data-select="' + selectId + '" data-field="' + fieldId + '" id="' + randomId + '"' + (isRandom ? " checked" : "") + '><span class="text-[10px] text-gray-500">' + randomLabel + "</span></label>" +
     '</div>'
   );
 }
+function markUploadBoostSelectAsCustom(selectEl) {
+  var placeholderOption = selectEl.querySelector('option[value=""]');
+  if (placeholderOption) placeholderOption.textContent = "-- سفارشی (مقدار وارد شده با هیچ پیش‌فرضی مطابقت ندارد) --";
+  selectEl.value = "";
+}
 document.body.addEventListener("change", function(e) {
   var presetSelect = e.target.closest(".upload-boost-preset-select");
-  if (presetSelect && presetSelect.value) {
+  if (presetSelect) {
+    if (!presetSelect.value) return; // user picked the placeholder itself - nothing to do
     var fieldEl = document.getElementById(presetSelect.getAttribute("data-field"));
     if (fieldEl) fieldEl.value = presetSelect.value;
-    presetSelect.value = "";
+    // Leave the select showing the preset just picked (do NOT reset it back
+    // to the placeholder) - it now correctly reflects what's in the field.
     return;
   }
   var randomCb = e.target.closest(".upload-boost-random-cb");
@@ -98,6 +121,27 @@ document.body.addEventListener("change", function(e) {
     if (targetField) targetField.disabled = randomCb.checked;
     if (targetSelect) targetSelect.disabled = randomCb.checked;
     return;
+  }
+});
+// Keeps the preset <select> in sync when the user hand-edits the paired
+// text field directly (rather than through the dropdown): if the typed
+// value now matches a known preset, that preset is auto-selected; if not,
+// the placeholder relabels itself to "custom" so the dropdown never shows a
+// stale/misleading preset name.
+document.body.addEventListener("input", function(e) {
+  var fieldEl = e.target;
+  if (!fieldEl.id || fieldEl.tagName !== "INPUT" && fieldEl.tagName !== "TEXTAREA") return;
+  if (fieldEl.id.indexOf("uploadBoostFP-") !== 0 && fieldEl.id.indexOf("uploadBoostCS-") !== 0 && fieldEl.id.indexOf("uploadBoostFM-") !== 0) return;
+  var selectId = fieldEl.id.replace(/^uploadBoost([A-Z]+)-/, "uploadBoost$1Select-");
+  var selectEl = document.getElementById(selectId);
+  if (!selectEl) return;
+  var matchingOption = Array.prototype.slice.call(selectEl.options).find(function(opt) {
+    return opt.value && opt.value === fieldEl.value;
+  });
+  if (matchingOption) {
+    selectEl.value = matchingOption.value;
+  } else {
+    markUploadBoostSelectAsCustom(selectEl);
   }
 });
 function readUploadBoostField(field, partId) {
@@ -928,7 +972,7 @@ function renderPartCard(part, lists, idx, allParts) {
   var protocolChecked = function(proto) {
     return (part.uploadBoostProtocols || ["vless", "trojan"]).indexOf(proto) !== -1;
   };
-  var uploadBoostBlock = '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><input type="checkbox" id="uploadBoost-' + part.id + '"' + (part.uploadBoostEnabled ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-purple-600"><label for="uploadBoost-' + part.id + '" class="text-xs text-gray-300 font-bold">رفع محدودیت آپلود / دور زدن فیلتر دامنه</label></div><span class="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">فقط کانفیگ‌های TLS</span></div><p class="text-[11px] text-gray-500 leading-relaxed">با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت سازگار: <a href="https://github.com/patterniha" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">پترنیها</a></p><div><label class="block text-[10px] mb-1 text-gray-500">این تنظیمات روی کدام پروتکل‌ها اعمال شود؟</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoVless-' + part.id + '"' + (protocolChecked("vless") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">VLESS</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoTrojan-' + part.id + '"' + (protocolChecked("trojan") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">Trojan</span></label></div></div><details class="bg-gray-900/50 border border-gray-800 rounded-lg"><summary class="p-2 text-[11px] text-gray-400 cursor-pointer hover:text-gray-300">تنظیمات پیشرفته (هر پارامتر جدا قابل تنظیم است)</summary><div class="p-3 space-y-3">' +
+  var uploadBoostBlock = '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><input type="checkbox" id="uploadBoost-' + part.id + '"' + (part.uploadBoostEnabled ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-purple-600"><label for="uploadBoost-' + part.id + '" class="text-xs text-gray-300 font-bold">رفع محدودیت آپلود / دور زدن فیلتر دامنه</label></div><span class="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">فقط کانفیگ‌های TLS</span></div><p class="text-[11px] text-gray-500 leading-relaxed">با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت پیشنهادی سازگار با ابن روش : <a href="https://github.com/patterniha/PattN/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattN</a>/<a href="https://github.com/patterniha/PattNG/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattNG</a></p><div><label class="block text-[10px] mb-1 text-gray-500">این تنظیمات روی کدام پروتکل‌ها اعمال شود؟</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoVless-' + part.id + '"' + (protocolChecked("vless") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">VLESS</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoTrojan-' + part.id + '"' + (protocolChecked("trojan") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">Trojan</span></label></div></div><details class="bg-gray-900/50 border border-gray-800 rounded-lg"><summary class="p-2 text-[11px] text-gray-400 cursor-pointer hover:text-gray-300">تنظیمات پیشرفته (هر پارامتر جدا قابل تنظیم است)</summary><div class="p-3 space-y-3">' +
     uploadBoostFieldHtml("fp", part.id, part.uploadBoostFingerprint, "اثر انگشت TLS (fp)") +
     uploadBoostFieldHtml("cs", part.id, part.uploadBoostCipherSuites, "لیست رمزنگارها (cs) - فقط برای security=tls") +
     uploadBoostFieldHtml("fm", part.id, part.uploadBoostFragmentMask, "تنظیمات فرگمنت (fm) - فقط برای security=tls") +

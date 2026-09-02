@@ -24,7 +24,7 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Cloudflare's free plan includes 100,000 KV reads and 1,000 KV writes per day, shared across the Worker. Sufficient for personal use.
 - Each part holds up to 1,000 base configs; after clean-IP multiplication, output is capped at 6,000 lines per part, with excess sampled at random.
 - Subscription URL fetches time out after 15 seconds; unreachable sources are marked as failed.
-- Live Worker usage percentage (when enabled) is cached in KV for a short 60-second window to avoid hammering Cloudflare's GraphQL API, independent of the subscription's own refresh interval; it only works for VLESS/Trojan/Shadowsocks configs, not VMess.
+- Live Worker usage percentage (when enabled) is cached in KV for 60 seconds (Cloudflare KV's own minimum TTL) to avoid hammering Cloudflare's GraphQL API, independent of the subscription's own refresh interval and never affecting manual/auto sync from the panel; it only works for VLESS/Trojan/Shadowsocks configs, not VMess.
 
 ## Deployment
 
