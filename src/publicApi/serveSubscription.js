@@ -1,4 +1,4 @@
-import { DEFAULT_AUTO_REFRESH_MINUTES, USAGE_PERCENT_SENTINEL, USAGE_PERCENT_CACHE_SECONDS, WORKER_FREE_DAILY_LIMIT } from "../constants.js";
+import { DEFAULT_AUTO_REFRESH_MINUTES, USAGE_PERCENT_SENTINEL, USAGE_PERCENT_CACHE_SECONDS, WORKER_FREE_DAILY_LIMIT, REFRESH_LOCK_TTL_SECONDS } from "../constants.js";
 import { getSources, saveSources, getSettings } from "../storage/kvStore.js";
 import { syncSingleSourceLogic } from "../sync/syncEngine.js";
 
@@ -54,18 +54,39 @@ async function fetchLiveUsagePercent(target, env) {
     const now = new Date();
     const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    const query = `query { viewer { accounts(filter: {accountTag: "${conn.accountId}"}) { workersInvocationsAdaptive(limit: 1, filter: {scriptName: "${target.scriptName}", datetime_geq: "${startOfDay.toISOString()}", datetime_lt: "${endOfDay.toISOString()}"}) { sum { requests } } } } }`;
+    const query = `query($accountTag: string!, $scriptName: string!, $datetimeGeq: string!, $datetimeLt: string!) {
+      viewer {
+        accounts(filter: {accountTag: $accountTag}) {
+          workersInvocationsAdaptive(limit: 1, filter: {scriptName: $scriptName, datetime_geq: $datetimeGeq, datetime_lt: $datetimeLt}) {
+            sum { requests }
+          }
+        }
+      }
+    }`;
+    const variables = {
+      accountTag: conn.accountId,
+      scriptName: target.scriptName,
+      datetimeGeq: startOfDay.toISOString(),
+      datetimeLt: endOfDay.toISOString()
+    };
     const resp = await fetch("https://api.cloudflare.com/client/v4/graphql", {
       method: "POST",
       headers: { Authorization: `Bearer ${conn.apiToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ query, variables })
     });
     if (!resp.ok) return null;
     const json = await resp.json().catch(() => null);
     if (!json || json.errors) return null;
     const accounts = json.data && json.data.viewer && json.data.viewer.accounts;
-    const sum = accounts && accounts[0] && accounts[0].workersInvocationsAdaptive && accounts[0].workersInvocationsAdaptive[0] && accounts[0].workersInvocationsAdaptive[0].sum;
-    if (!sum) return null;
+    // Missing `accounts` entirely means the token/account lookup itself
+    // failed - a genuine error, so this returns null (falls back to "--").
+    if (!accounts) return null;
+    // Cloudflare's Analytics API returns an EMPTY array (not a row with
+    // requests: 0) when a script genuinely had zero invocations in the
+    // queried window - so a missing row here means "0 requests", not "fetch
+    // failed". Treating it as a failure was the actual cause of showing
+    // "--%" for workers that legitimately had 0% usage.
+    const sum = (accounts[0] && accounts[0].workersInvocationsAdaptive && accounts[0].workersInvocationsAdaptive[0] && accounts[0].workersInvocationsAdaptive[0].sum) || { requests: 0 };
     const percent = Math.min(999, Math.round((sum.requests / WORKER_FREE_DAILY_LIMIT) * 100));
     return percent;
   } catch (e) {
@@ -73,13 +94,19 @@ async function fetchLiveUsagePercent(target, env) {
   }
 }
 
-async function injectUsagePercent(configs, usagePercentTarget, env) {
-  if (!usagePercentTarget || !configs.includes(USAGE_PERCENT_SENTINEL)) return configs;
-  const percent = await getCachedUsagePercent(usagePercentTarget, env);
-  // If the live fetch fails for any reason, fall back to "--" rather than
-  // breaking the whole subscription output.
-  const replacement = percent === null ? "--" : percent;
-  return configs.split(USAGE_PERCENT_SENTINEL).join(replacement);
+async function injectUsagePercent(configs, usagePercentTargets, env) {
+  if (!usagePercentTargets || !configs.includes(USAGE_PERCENT_SENTINEL)) return configs;
+  let result = configs;
+  for (const partId of Object.keys(usagePercentTargets)) {
+    const sentinel = USAGE_PERCENT_SENTINEL + partId;
+    if (!result.includes(sentinel)) continue;
+    const percent = await getCachedUsagePercent(usagePercentTargets[partId], env);
+    // If the live fetch fails for any reason, fall back to "--" rather than
+    // breaking the whole subscription output.
+    const replacement = percent === null ? "--" : percent;
+    result = result.split(sentinel).join(replacement);
+  }
+  return result;
 }
 
 export async function handleServeSubscription(token, env, ctx) {
@@ -92,11 +119,17 @@ export async function handleServeSubscription(token, env, ctx) {
     const data = JSON.parse(dataStr);
     if (data.nextAutoRefreshDueAt && Date.now() > new Date(data.nextAutoRefreshDueAt).getTime()) {
       // The cached configs below are still served immediately (no delay for
-      // the client); the source is refreshed in the background for next time.
-      ctx.waitUntil(backgroundRefreshOneSource(id, env));
+      // the client); the source is refreshed in the background for next
+      // time. Guarded by a short-lived KV lock so many clients hitting this
+      // at once don't each trigger their own background refresh.
+      ctx.waitUntil(triggerBackgroundRefreshOnce(id, env));
     }
-    const liveConfigs = await injectUsagePercent(data.configs || "", data.usagePercentTarget, env);
-    const base64Configs = btoa(unescape(encodeURIComponent(liveConfigs)));
+    // Already base64-encoded at generation time when possible (see
+    // sync/scheduling.js) - only re-encode here when a live usage-percent
+    // value still needs to be spliced in first.
+    const base64Configs = data.base64Configs
+      ? data.base64Configs
+      : btoa(unescape(encodeURIComponent(await injectUsagePercent(data.configs || "", data.usagePercentTargets, env))));
     const updateIntervalHours = Math.max(1, Math.round((data.updateIntervalMinutes || DEFAULT_AUTO_REFRESH_MINUTES) / 60));
     return new Response(base64Configs, {
       headers: {
@@ -109,6 +142,22 @@ export async function handleServeSubscription(token, env, ctx) {
   } catch (e) {
     return new Response("Subscription data corrupted", { status: 500 });
   }
+}
+
+// Several clients can hit a due-for-refresh subscription within the same
+// few seconds; without this lock each one would independently trigger
+// backgroundRefreshOneSource, multiplying requests to the source's upstream
+// links and to Cloudflare's API for no benefit.
+async function triggerBackgroundRefreshOnce(id, env) {
+  const lockKey = `refresh_lock_${id}`;
+  try {
+    const existing = await env.SUB_DB.get(lockKey);
+    if (existing) return;
+    await env.SUB_DB.put(lockKey, "1", { expirationTtl: REFRESH_LOCK_TTL_SECONDS });
+  } catch (e) {
+    /* lock read/write failed - proceed anyway rather than never refreshing */
+  }
+  await backgroundRefreshOneSource(id, env);
 }
 
 export async function backgroundRefreshOneSource(id, env) {

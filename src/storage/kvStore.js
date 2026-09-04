@@ -15,7 +15,7 @@ import {
 
 export async function getSettings(env) {
   const defaults = {
-    cleanIpLists: [{ id: BUILTIN_CLEAN_IP_LIST_ID, name: "لیست پیش‌فرض پنل", ips: DEFAULT_CLEAN_IPS.slice(), builtin: true }],
+    cleanIpLists: [{ id: BUILTIN_CLEAN_IP_LIST_ID, name: "Default Panel List", ips: DEFAULT_CLEAN_IPS.slice(), builtin: true }],
     cfConnections: []
   };
   try {
@@ -48,14 +48,22 @@ export function clampAutoRefreshMinutes(value) {
 
 export function normalizeSourceShape(source) {
   if (!source.slug) source.slug = source.id;
-  // v1.1.0 source-level display settings (config naming was already fixed
-  // per-part in 1.0.0 data; these two are new and apply to every
-  // cloudflare-category config in the source).
-  if (typeof source.emojiEnabled !== "boolean") source.emojiEnabled = true;
-  if (typeof source.usagePercentEnabled !== "boolean") source.usagePercentEnabled = false;
-  if (typeof source.usagePercentCfConnectionId !== "string") source.usagePercentCfConnectionId = null;
-  if (typeof source.usagePercentScriptName !== "string") source.usagePercentScriptName = null;
+  // Migrate v1.1.0 source-level display settings (emoji / usage-percent
+  // applied uniformly to the whole subscription) into per-part settings,
+  // for sources saved before v1.1.5 introduced per-part display settings.
+  const legacyEmojiEnabled = typeof source.emojiEnabled === "boolean" ? source.emojiEnabled : null;
+  const legacyUsagePercentEnabled = !!source.usagePercentEnabled;
+  const legacyUsagePercentCfConnectionId = typeof source.usagePercentCfConnectionId === "string" ? source.usagePercentCfConnectionId : null;
+  const legacyUsagePercentScriptName = typeof source.usagePercentScriptName === "string" ? source.usagePercentScriptName : null;
+  delete source.emojiEnabled;
+  delete source.usagePercentEnabled;
+  delete source.usagePercentCfConnectionId;
+  delete source.usagePercentScriptName;
   (source.parts || []).forEach((part) => {
+    if (typeof part.emojiEnabled !== "boolean") part.emojiEnabled = legacyEmojiEnabled !== null ? legacyEmojiEnabled : true;
+    if (typeof part.usagePercentEnabled !== "boolean") part.usagePercentEnabled = legacyUsagePercentEnabled;
+    if (typeof part.usagePercentCfConnectionId !== "string") part.usagePercentCfConnectionId = legacyUsagePercentCfConnectionId;
+    if (typeof part.usagePercentScriptName !== "string") part.usagePercentScriptName = legacyUsagePercentScriptName;
     if (part.kind === "url") {
       if (part.autoRefreshEnabled === undefined) part.autoRefreshEnabled = true;
       else part.autoRefreshEnabled = !!part.autoRefreshEnabled;

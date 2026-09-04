@@ -40,19 +40,19 @@ export async function syncSingleSourceLogic(source, settings, env, mode) {
   const isAuto = mode === "auto";
   const now = Date.now();
   source.parts = source.parts || [];
-  let anyPartFetched = false;
-  for (const part of source.parts) {
-    if (part.kind !== "url" || !part.url) continue;
-    if (isAuto) {
-      if (part.autoRefreshEnabled === false) continue;
-      const intervalMs = clampAutoRefreshMinutes(part.autoRefreshMinutes) * 60 * 1000;
-      const lastFetchedAt = part.lastFetchedAt ? new Date(part.lastFetchedAt).getTime() : 0;
-      if (now - lastFetchedAt < intervalMs) continue;
-    }
-    await fetchAndPopulatePart(part, true);
-    anyPartFetched = true;
-  }
-  if (isAuto && !anyPartFetched) return false;
+  // Fetched in parallel (not one-by-one with await in a loop): a source with
+  // several URL parts could otherwise add up past the Worker's CPU/wall-clock
+  // limit on the free plan.
+  const partsToFetch = source.parts.filter((part) => {
+    if (part.kind !== "url" || !part.url) return false;
+    if (!isAuto) return true;
+    if (part.autoRefreshEnabled === false) return false;
+    const intervalMs = clampAutoRefreshMinutes(part.autoRefreshMinutes) * 60 * 1000;
+    const lastFetchedAt = part.lastFetchedAt ? new Date(part.lastFetchedAt).getTime() : 0;
+    return now - lastFetchedAt >= intervalMs;
+  });
+  if (isAuto && partsToFetch.length === 0) return false;
+  await Promise.all(partsToFetch.map((part) => fetchAndPopulatePart(part, true)));
   assignSequentialNames(source);
   await regenerateSourceOutput(source, settings, env);
   source.lastSync = new Date().toISOString();

@@ -56,33 +56,42 @@ export async function handleDeleteCfConnection(connectionId, env) {
 export async function handleGetCloudflareStats(connectionId, env) {
   const settings = await getSettings(env);
   const conn = settings.cfConnections.find((c) => c.id === connectionId);
-  if (!conn) return new Response(JSON.stringify({ error: "این اتصال API یافت نشد." }), { status: 404 });
+  if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
   if (!/^[a-f0-9]{32}$/i.test(conn.accountId || "")) {
-    return new Response(JSON.stringify({ error: "Account ID این اتصال نامعتبر است." }), { status: 400 });
+    return new Response(JSON.stringify({ success: false, error: "CF_ACCOUNT_ID_INVALID" }), { status: 400 });
   }
   const now = new Date();
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-  const query = `query { viewer { accounts(filter: {accountTag: "${conn.accountId}"}) { workersInvocationsAdaptive(limit: 1, filter: {datetime_geq: "${startOfDay.toISOString()}", datetime_lt: "${endOfDay.toISOString()}"}) { sum { requests } } } } }`;
+  const query = `query($accountTag: string!, $datetimeGeq: string!, $datetimeLt: string!) {
+    viewer {
+      accounts(filter: {accountTag: $accountTag}) {
+        workersInvocationsAdaptive(limit: 1, filter: {datetime_geq: $datetimeGeq, datetime_lt: $datetimeLt}) {
+          sum { requests }
+        }
+      }
+    }
+  }`;
+  const variables = { accountTag: conn.accountId, datetimeGeq: startOfDay.toISOString(), datetimeLt: endOfDay.toISOString() };
   try {
     const resp = await fetch("https://api.cloudflare.com/client/v4/graphql", {
       method: "POST",
       headers: { Authorization: `Bearer ${conn.apiToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ query, variables })
     });
     const json = await resp.json().catch(() => null);
     if (!resp.ok || !json || json.errors) {
-      const message = (json && json.errors && json.errors[0] && json.errors[0].message) || "دریافت آمار از کلودفلر ناموفق بود";
-      return new Response(JSON.stringify({ error: message }), { status: 502 });
+      const message = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
+      return new Response(JSON.stringify({ success: false, error: "CF_STATS_FETCH_FAILED", message }), { status: 502 });
     }
     const accounts = json.data && json.data.viewer && json.data.viewer.accounts;
     if (!accounts || accounts.length === 0) {
-      return new Response(JSON.stringify({ error: "این توکن به اطلاعات آماری این اکانت دسترسی ندارد." }), { status: 403 });
+      return new Response(JSON.stringify({ success: false, error: "CF_STATS_NO_ACCESS" }), { status: 403 });
     }
     const stats = (accounts[0].workersInvocationsAdaptive && accounts[0].workersInvocationsAdaptive[0] && accounts[0].workersInvocationsAdaptive[0].sum) || { requests: 0 };
-    return new Response(JSON.stringify({ requests: stats.requests, label: conn.label }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, requests: stats.requests, label: conn.label }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: "اتصال به کلودفلر برقرار نشد." }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: "CF_STATS_FETCH_FAILED" }), { status: 500 });
   }
 }
 
@@ -109,16 +118,38 @@ export async function handleListCfScripts(connectionId, env) {
   }
 }
 
-// v1.1.0: set (or reset) a Worker's Placement, matching the community
-// "region hint" trick (Settings > Runtime > Placement > Region in the
-// Cloudflare dashboard) - this is a real, documented Cloudflare feature
-// (Placement Hints), not a workaround this panel invented.
-// CONFIRMED LIMITATION: resetting placement back to default via
-// {mode: "off"} is rejected by Cloudflare's API ("invalid placement mode:
-// off") - this is a known bug on Cloudflare's side (their own dashboard hits
-// the same error in some cases), not something fixable from this panel. See
-// the user-facing message built below for what to tell the user when it
-// happens.
+// Fetches the full, current list of Placement regions directly from
+// Cloudflare (this is a real, documented endpoint - not something inferred
+// or guessed). The panel falls back to a small hardcoded preset list
+// client-side if this fails, so a token without this permission (or a
+// transient API error) doesn't block using Placement at all.
+export async function handleGetCfRegions(connectionId, env) {
+  const settings = await getSettings(env);
+  const conn = settings.cfConnections.find((c) => c.id === connectionId);
+  if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
+  try {
+    const resp = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(conn.accountId)}/workers/placement/regions`, {
+      headers: { Authorization: `Bearer ${conn.apiToken}` }
+    });
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.success !== true) {
+      const message = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
+      return new Response(JSON.stringify({ success: false, error: "CF_REGIONS_LIST_FAILED", message }), { status: 502 });
+    }
+    const regions = (json.result || []).map((r) => ({ value: r.key, label: r.name ? `${r.name} (${r.key})` : r.key }));
+    return new Response(JSON.stringify({ success: true, regions }), { status: 200, headers: { "Content-Type": "application/json" } });
+  } catch (e) {
+    return new Response(JSON.stringify({ success: false, error: "CF_REGIONS_LIST_FAILED" }), { status: 500 });
+  }
+}
+
+// Sets (or resets) a Worker's Placement, matching the community "region
+// hint" trick (Settings > Runtime > Placement > Region in the Cloudflare
+// dashboard) - this is a real, documented Cloudflare feature (Placement
+// Hints), not a workaround this panel invented.
+// Cloudflare's API rejects a literal {mode: "off"} payload ("invalid
+// placement mode: off"); an empty placement object ({}) is what actually
+// resets it to Default, confirmed against the live API.
 export async function handleSetCfPlacement(connectionId, request, env) {
   try {
     const data = await request.json();
@@ -132,7 +163,7 @@ export async function handleSetCfPlacement(connectionId, request, env) {
     const conn = settings.cfConnections.find((c) => c.id === connectionId);
     if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
 
-    const placement = region ? { region } : { mode };
+    const placement = region ? { region } : mode === "off" ? {} : { mode };
     // This endpoint only accepts multipart/form-data with a "settings" part
     // (confirmed against real-world Cloudflare API behavior - a JSON body
     // is rejected with "Content-Type must be one of: multipart/form-data").
@@ -152,16 +183,7 @@ export async function handleSetCfPlacement(connectionId, request, env) {
     );
     const json = await resp.json().catch(() => null);
     if (!resp.ok || !json || json.success !== true) {
-      const rawMessage = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
-      // "mode: off" is not actually accepted by Cloudflare's API - this is a
-      // confirmed, known limitation (Cloudflare's own dashboard hits the
-      // same "invalid placement mode" error in some cases when resetting to
-      // Default). Give a clear, specific explanation instead of the raw
-      // cryptic API error, so the user knows this isn't a bug in the panel.
-      const message =
-        mode === "off" && rawMessage && /invalid placement mode/i.test(rawMessage)
-          ? "کلودفلر برگرداندن Placement به پیش‌فرض را از طریق API رد کرد - این یک محدودیت شناخته‌شده در خودِ API کلودفلر است (گاهی حتی از داشبورد رسمی هم همین خطا رخ می‌دهد)، نه ایرادی از پنل. برای بازگشت به پیش‌فرض باید از داشبورد کلودفلر اقدام کنید: Workers & Pages ← ورکر موردنظر ← Settings ← Runtime ← Placement ← Default."
-          : rawMessage;
+      const message = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
       return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_UPDATE_FAILED", message }), { status: 502 });
     }
     return new Response(JSON.stringify({ success: true, placement: (json.result && json.result.placement) || placement }));

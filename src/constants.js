@@ -214,6 +214,10 @@ export const USAGE_PERCENT_SENTINEL = "SmUsagePct7f2b9c";
 // slower, is shared globally and gives a real, consistent 60s cap on how
 // often Cloudflare's GraphQL API gets called for a given worker script.
 export const USAGE_PERCENT_CACHE_SECONDS = 60;
+// How long a background-refresh lock for a single source is held, so
+// several near-simultaneous subscription requests don't each trigger their
+// own refresh of the same source.
+export const REFRESH_LOCK_TTL_SECONDS = 120;
 
 // Same free-plan daily invocation cap used by the existing account-wide
 // "worker usage" widget, reused as the denominator for the per-config

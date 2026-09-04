@@ -29,7 +29,7 @@ export function reduceToOnePerHostPort(baseConfigs, category) {
   });
   const result = [];
   groups.forEach((group) => {
-    result.push(group[Math.floor(Math.random() * group.length)]);
+    result.push(group[0]);
   });
   return result;
 }
@@ -48,9 +48,12 @@ export function getConfigEmoji(base, category, emojiEnabled) {
 }
 
 // `usagePercentEnabled` only makes sense for worker (cloudflare-category)
-// configs: it embeds a sentinel placeholder that publicApi/serveSubscription.js
-// substitutes with a live-fetched usage percentage at request time, kept
-// separate from the cached generation pipeline (see scheduling.js).
+// configs: it embeds a per-part sentinel placeholder that
+// publicApi/serveSubscription.js substitutes with a live-fetched usage
+// percentage at request time, kept separate from the cached generation
+// pipeline (see scheduling.js). The sentinel is suffixed with the part id
+// so several parts (possibly pointing at different Worker scripts) can each
+// carry their own live value in the same subscription output.
 // Skipped for vmess-legacy configs: those are base64-encoded as a whole at
 // generation time (see applyHostToConfig/passThroughConfig below), so a
 // value only known later at serve time cannot be spliced back in.
@@ -59,7 +62,7 @@ export function buildDisplayName(base, category, displayOptions) {
   const emoji = getConfigEmoji(base, category, opts.emojiEnabled);
   const baseName = base.customName || base.name;
   const canShowUsagePercent = opts.usagePercentEnabled && category === "cloudflare" && base.kind !== "vmess-legacy";
-  const suffix = canShowUsagePercent ? " (" + USAGE_PERCENT_SENTINEL + "%)" : "";
+  const suffix = canShowUsagePercent ? " (" + opts.usagePercentSentinel + "%)" : "";
   return (emoji ? emoji + " " : "") + baseName + suffix;
 }
 
@@ -208,13 +211,14 @@ export function buildPartSettings(part) {
   };
 }
 
-// Source-level display options (v1.1.0): one emoji/usage-percent choice for
-// the whole subscription, applied uniformly to its configs at generation
-// time (see storage/scheduling.js).
-export function buildDisplayOptions(source) {
+// Per-part display options: each part (URL/manual entry) has its own
+// emoji/usage-percent choice, applied only to that part's configs at
+// generation time (see storage/scheduling.js).
+export function buildPartDisplayOptions(part) {
   return {
-    emojiEnabled: source.emojiEnabled !== false,
-    usagePercentEnabled: !!(source.usagePercentEnabled && source.usagePercentCfConnectionId && source.usagePercentScriptName)
+    emojiEnabled: part.emojiEnabled !== false,
+    usagePercentEnabled: !!(part.usagePercentEnabled && part.usagePercentCfConnectionId && part.usagePercentScriptName),
+    usagePercentSentinel: USAGE_PERCENT_SENTINEL + part.id
   };
 }
 
@@ -280,18 +284,19 @@ export function generatePartOutput(part, settings, displayOptions) {
 export function generateSourceOutput(source, settings) {
   const allLines = [];
   const partWarnings = [];
-  const displayOptions = buildDisplayOptions(source);
+  const usagePercentTargets = {};
   (source.parts || []).forEach((part) => {
+    const displayOptions = buildPartDisplayOptions(part);
     const result = generatePartOutput(part, settings, displayOptions);
     if (result.error) partWarnings.push({ partId: part.id, message: result.error, params: result.errorParams || null });
     if (result.lines) allLines.push(...result.lines);
+    // usagePercentTargets travels alongside the cached output so the (fast,
+    // full-source-independent) public serve path can do the live
+    // substitution without needing to reload the whole source object - see
+    // publicApi/serveSubscription.js.
+    if (displayOptions.usagePercentEnabled) {
+      usagePercentTargets[part.id] = { cfConnectionId: part.usagePercentCfConnectionId, scriptName: part.usagePercentScriptName };
+    }
   });
-  // usagePercentTarget travels alongside the cached output so the (fast,
-  // full-source-independent) public serve path can do the live substitution
-  // without needing to reload the whole source object - see
-  // publicApi/serveSubscription.js.
-  const usagePercentTarget = displayOptions.usagePercentEnabled
-    ? { cfConnectionId: source.usagePercentCfConnectionId, scriptName: source.usagePercentScriptName }
-    : null;
-  return { configs: allLines, partWarnings, usagePercentTarget };
+  return { configs: allLines, partWarnings, usagePercentTargets };
 }

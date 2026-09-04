@@ -41,6 +41,24 @@ export async function handleUpdatePartSettings(sourceId, partId, request, env) {
     }
     if (data.nameMode === NAME_MODE_ORIGINAL || data.nameMode === "auto") part.nameMode = data.nameMode;
     if (typeof data.autoNumberEnabled === "boolean") part.autoNumberEnabled = data.autoNumberEnabled;
+    // Display settings (emoji / live usage-percent in config names) are
+    // per-part, not per-source: each part of a subscription may point at a
+    // different Worker script, so a single shared toggle for the whole
+    // subscription would not make sense.
+    if (typeof data.emojiEnabled === "boolean") part.emojiEnabled = data.emojiEnabled;
+    if (typeof data.usagePercentEnabled === "boolean") part.usagePercentEnabled = data.usagePercentEnabled;
+    if (data.usagePercentEnabled) {
+      const cfConnectionId = typeof data.usagePercentCfConnectionId === "string" ? data.usagePercentCfConnectionId.trim() : "";
+      const scriptName = typeof data.usagePercentScriptName === "string" ? data.usagePercentScriptName.trim() : "";
+      if (!cfConnectionId || !scriptName) {
+        return new Response(JSON.stringify({ success: false, error: "USAGE_PERCENT_NEEDS_TARGET" }), { status: 400 });
+      }
+      part.usagePercentCfConnectionId = cfConnectionId;
+      part.usagePercentScriptName = scriptName;
+    } else if (data.usagePercentEnabled === false) {
+      part.usagePercentCfConnectionId = null;
+      part.usagePercentScriptName = null;
+    }
     if (part.kind === "url") {
       if (typeof data.autoRefreshEnabled === "boolean") part.autoRefreshEnabled = data.autoRefreshEnabled;
       if (data.autoRefreshMinutes !== undefined) part.autoRefreshMinutes = clampAutoRefreshMinutes(data.autoRefreshMinutes);
@@ -129,6 +147,10 @@ export async function handleGetSourceConfigs(sourceId, env) {
       uploadBoostProtocols: Array.isArray(part.uploadBoostProtocols) && part.uploadBoostProtocols.length > 0 ? part.uploadBoostProtocols : DEFAULT_UPLOAD_BOOST_PROTOCOLS,
       nameMode: part.nameMode === NAME_MODE_ORIGINAL ? NAME_MODE_ORIGINAL : "auto",
       autoNumberEnabled: part.autoNumberEnabled !== false,
+      emojiEnabled: part.emojiEnabled !== false,
+      usagePercentEnabled: !!part.usagePercentEnabled,
+      usagePercentCfConnectionId: part.usagePercentCfConnectionId || null,
+      usagePercentScriptName: part.usagePercentScriptName || null,
       truncated: !!part.truncated,
       lastFetchOk: part.lastFetchOk,
       availablePorts,
@@ -140,11 +162,7 @@ export async function handleGetSourceConfigs(sourceId, env) {
     JSON.stringify({
       source: {
         id: source.id,
-        name: source.name,
-        emojiEnabled: source.emojiEnabled !== false,
-        usagePercentEnabled: !!source.usagePercentEnabled,
-        usagePercentCfConnectionId: source.usagePercentCfConnectionId || null,
-        usagePercentScriptName: source.usagePercentScriptName || null
+        name: source.name
       },
       parts,
       cleanIpLists: settings.cleanIpLists.map((l) => ({ id: l.id, name: l.name, ips: l.ips, builtin: !!l.builtin })),

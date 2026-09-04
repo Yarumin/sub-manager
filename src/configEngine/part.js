@@ -64,6 +64,13 @@ export function makeNewPart(kind, url, category, nameMode) {
     // appended after the source name ("SourceName 1", "2", ...) or every
     // config in this part just gets the plain source name. On by default.
     autoNumberEnabled: true,
+    // Display settings, per-part: whether configs from this part get an
+    // emoji prefix, and whether their name shows a live Worker usage %
+    // (only meaningful when category is "cloudflare").
+    emojiEnabled: true,
+    usagePercentEnabled: false,
+    usagePercentCfConnectionId: null,
+    usagePercentScriptName: null,
     baseConfigs: [],
     blockedFingerprints: [],
     customNamesByFingerprint: {},
@@ -109,14 +116,15 @@ export function assignSequentialNames(source) {
     const useOriginal = part.nameMode === NAME_MODE_ORIGINAL;
     const useNumbering = part.autoNumberEnabled !== false;
     (part.baseConfigs || []).forEach((cfg) => {
-      if (useOriginal) {
-        // Keep the config's own embedded name; only fall back to a
-        // sequential name if it genuinely has none (e.g. no #fragment).
-        cfg.name = cfg.originalName || (source.name || FALLBACK_CONFIG_NAME) + (useNumbering ? " " + n : "");
-      } else {
-        cfg.name = (source.name || FALLBACK_CONFIG_NAME) + (useNumbering ? " " + n : "");
+      if (useOriginal && cfg.originalName) {
+        // Keep the config's own embedded name - no number consumed.
+        cfg.name = cfg.originalName;
+        return;
       }
-      n++;
+      cfg.name = (source.name || FALLBACK_CONFIG_NAME) + (useNumbering ? " " + n : "");
+      // Only advance the counter when a number was actually used, so a part
+      // with numbering off doesn't leave a gap in another part's sequence.
+      if (useNumbering) n++;
     });
   });
 }

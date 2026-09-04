@@ -26,19 +26,29 @@ export function computeSourceUpdateIntervalMinutes(source) {
 
 export async function regenerateSourceOutput(source, settings, env) {
   const result = generateSourceOutput(source, settings);
+  const configsText = (result.configs || []).join("\n");
+  const usagePercentTargets = result.usagePercentTargets || {};
+  const hasLiveTargets = Object.keys(usagePercentTargets).length > 0;
   const outputData = {
     id: source.id,
     name: source.name,
     updatedAt: new Date().toISOString(),
-    configs: (result.configs || []).join("\n"),
+    configs: configsText,
+    // Pre-encoded once here at generation time rather than on every single
+    // subscription request. Only possible when there is nothing left to
+    // substitute live at serve time (no usage-percent sentinels); otherwise
+    // this is left null and publicApi/serveSubscription.js falls back to
+    // encoding after doing the live substitution.
+    base64Configs: hasLiveTargets ? null : btoa(unescape(encodeURIComponent(configsText))),
     partWarnings: result.partWarnings || [],
     nextAutoRefreshDueAt: computeNextAutoRefreshDueAt(source),
     updateIntervalMinutes: computeSourceUpdateIntervalMinutes(source),
-    // v1.1.0: which Cloudflare connection+script (if any) the live
-    // usage-percentage sentinels in `configs` above should be resolved
-    // against. Travels with the cache so the public /sub/{slug} path never
-    // needs to load the full source object just to serve a request.
-    usagePercentTarget: result.usagePercentTarget || null
+    // Per-part map of which Cloudflare connection+script (if any) each
+    // part's live usage-percentage sentinel in `configs` above should be
+    // resolved against. Travels with the cache so the public /sub/{slug}
+    // path never needs to load the full source object just to serve a
+    // request.
+    usagePercentTargets: hasLiveTargets ? usagePercentTargets : null
   };
   try {
     await env.SUB_DB.put(`out_${source.id}`, JSON.stringify(outputData));

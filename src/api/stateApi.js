@@ -35,13 +35,7 @@ export async function handleGetState(env) {
       baseCount,
       finalCount,
       truncated,
-      partWarnings,
-      // v1.1.0 source-level display settings, shown/edited from the
-      // collapsible "تنظیمات نمایش" block in the source editor.
-      emojiEnabled: src.emojiEnabled !== false,
-      usagePercentEnabled: !!src.usagePercentEnabled,
-      usagePercentCfConnectionId: src.usagePercentCfConnectionId || null,
-      usagePercentScriptName: src.usagePercentScriptName || null
+      partWarnings
     });
   }
   const cfConnections = (settings.cfConnections || []).map((c) => ({
@@ -57,7 +51,7 @@ export async function handleGetState(env) {
       cleanIpLists,
       cfConnections,
       items,
-      usingDefaultPassword: !env.ADMIN_PASSWORD
+      usingDefaultPassword: !env.ADMIN_PASSWORD || env.ADMIN_PASSWORD === "admin123"
     }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );

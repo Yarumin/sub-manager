@@ -67,11 +67,6 @@ export function normalizeImportedBackup(raw) {
       name: typeof s.name === "string" ? s.name : "منبع بازیابی‌شده",
       createdAt: typeof s.createdAt === "string" ? s.createdAt : new Date().toISOString(),
       lastSync: typeof s.lastSync === "string" ? s.lastSync : null,
-      // v1.1.0 source-level display settings.
-      emojiEnabled: typeof s.emojiEnabled === "boolean" ? s.emojiEnabled : true,
-      usagePercentEnabled: !!(s.usagePercentEnabled && typeof s.usagePercentCfConnectionId === "string" && typeof s.usagePercentScriptName === "string"),
-      usagePercentCfConnectionId: typeof s.usagePercentCfConnectionId === "string" ? s.usagePercentCfConnectionId : null,
-      usagePercentScriptName: typeof s.usagePercentScriptName === "string" ? s.usagePercentScriptName : null,
       parts: Array.isArray(s.parts)
         ? s.parts
             .filter((p) => p && typeof p === "object" && typeof p.id === "string")
@@ -111,6 +106,27 @@ export function normalizeImportedBackup(raw) {
                     : DEFAULT_UPLOAD_BOOST_PROTOCOLS.slice(),
                 nameMode: p.nameMode === NAME_MODE_ORIGINAL || p.nameMode === "auto" ? p.nameMode : kind === "manual" ? DEFAULT_NAME_MODE_MANUAL : DEFAULT_NAME_MODE_URL,
                 autoNumberEnabled: typeof p.autoNumberEnabled === "boolean" ? p.autoNumberEnabled : true,
+                // Per-part display settings. Backups exported before v1.1.5
+                // stored these at the source level instead - fall back to
+                // that when the part itself doesn't have its own value.
+                emojiEnabled: typeof p.emojiEnabled === "boolean" ? p.emojiEnabled : typeof s.emojiEnabled === "boolean" ? s.emojiEnabled : true,
+                usagePercentEnabled: !!(
+                  (typeof p.usagePercentEnabled === "boolean" ? p.usagePercentEnabled : s.usagePercentEnabled) &&
+                  (typeof p.usagePercentCfConnectionId === "string" ? p.usagePercentCfConnectionId : s.usagePercentCfConnectionId) &&
+                  (typeof p.usagePercentScriptName === "string" ? p.usagePercentScriptName : s.usagePercentScriptName)
+                ),
+                usagePercentCfConnectionId:
+                  typeof p.usagePercentCfConnectionId === "string"
+                    ? p.usagePercentCfConnectionId
+                    : typeof s.usagePercentCfConnectionId === "string"
+                      ? s.usagePercentCfConnectionId
+                      : null,
+                usagePercentScriptName:
+                  typeof p.usagePercentScriptName === "string"
+                    ? p.usagePercentScriptName
+                    : typeof s.usagePercentScriptName === "string"
+                      ? s.usagePercentScriptName
+                      : null,
                 truncated: !!p.truncated,
                 lastFetchOk: typeof p.lastFetchOk === "boolean" ? p.lastFetchOk : null,
                 lastFetchedAt: typeof p.lastFetchedAt === "string" ? p.lastFetchedAt : null

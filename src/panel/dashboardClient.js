@@ -1,6 +1,418 @@
 export function getDashboardClientScript(baseUrl) {
   return `
 var baseUrl = "${baseUrl}";
+// --- i18n ---------------------------------------------------------------
+// currentLang is initialized from the same logic dashboardShell.js runs
+// before first paint (saved choice, else Persian if the browser is set to
+// Persian, else English), kept in sync via toggleLanguage() below.
+var currentLang = document.documentElement.lang === "fa" ? "fa" : "en";
+var UI_TEXT = {
+  fa: {
+    appTitle: "پنل مدیریت سابسکریپشن",
+    appSubtitle: "مدیریت منابع، لیست‌های آی‌پی تمیز، و اتصال کلودفلر",
+    syncAllBtn: "همگام‌سازی همه",
+    logoutBtn: "خروج",
+    passwordWarning: "⚠️ شما هنوز از رمز پیش‌فرض ناامن استفاده می‌کنید. حتماً یک ADMIN_PASSWORD قوی (از نوع Secret) تنظیم کنید.",
+    newSourceTitle: "ایجاد سابسکریپشن جدید",
+    newSourceDesc: "یک سابسکریپشن می‌تواند شامل چند لینک منبع، چند کانفیگ مستقیم، یا ترکیبی از هر دو باشد - هر لینک/بلوک، یک «بخش» کاملاً مستقل با تنظیمات خودش می‌شود.",
+    sourceNameLabel: "نام نمایشی",
+    sourceNamePlaceholder: "مثلاً: سرور آلمان ۱",
+    sourceUrlsLabel: "لینک‌های منبع (اختیاری - هر خط یک لینک)",
+    keepOriginalNamesLabel: "به‌جای نام‌گذاری خودکار توسط پنل، نام اصلی کانفیگ‌ها حفظ شود",
+    sourceManualLabel: "کانفیگ‌های مستقیم (اختیاری - هر خط یک کانفیگ)",
+    categoryLabel: "نوع کانفیگ‌ها",
+    categoryWorker: "کانفیگ ورکر",
+    categoryIndependent: "کانفیگ مستقل",
+    useCleanIpLabel: "استفاده از آی‌پی تمیز جایگزین",
+    newSourceHint: "این‌ها فقط مقدار اولیه‌اند؛ بعداً از «ویرایش» می‌توانید هر بخش را جداگانه تنظیم کنید (پورت‌ها، لیست آی‌پی، نحوه‌ی توزیع، به‌روزرسانی خودکار و ...).",
+    createSourceBtn: "ساخت سابسکریپشن جدید",
+    sourcesListTitle: "سابسکریپشن‌ها",
+    editorDefaultTitle: "تنظیمات سابسکریپشن",
+    closeBtn: "بستن",
+    subscriptionAddressLabel: "آدرس سابسکریپشن",
+    saveBtn: "ذخیره",
+    slugHint: "فقط حروف و عدد انگلیسی، خط تیره و زیرخط؛ بین ۴ تا ۳۲ کاراکتر.",
+    editorPartsDesc: "هر لینک/بخش کاملاً مستقل است و تنظیمات خودش را دارد؛ به‌روزرسانی خودکار هم برای هرکدام جداگانه تنظیم می‌شود. فهرست کانفیگ‌های هرکدام همیشه کامل و بدون فیلتر نمایش داده می‌شود؛ فیلترها فقط روی خروجی نهایی اثر می‌گذارند.",
+    cfConnectionTitle: "اتصال به API کلودفلر",
+    cfConnectionGuide: '<strong class="block text-gray-300 mb-1">این بخش کاملاً اختیاری است - برای آمار مصرف Workers، درصد مصرف کنار نام کانفیگ‌ها، و تنظیم Placement:</strong><p>۱) روی دکمه‌ی «ساخت خودکار توکن در کلودفلر» بزنید. یک صفحه با اکانت و مجوزهای از‌پیش‌انتخاب‌شده (شامل <b>Account Settings: Read</b>، <b>Account Analytics: Read</b>، <b>Workers Scripts: Write</b>) باز می‌شود.</p><p>۲) روی <b>Review token</b> بزنید تا خلاصه‌ی توکن (Token Summary) را ببینید، سپس <b>Create Token</b> را بزنید.</p><p>۳) در صفحه‌ی نهایی، هم <b>Account ID</b> و هم <b>API Token</b> نمایش داده می‌شوند - چون این توکن فقط همان لحظه نمایش داده می‌شود، هر دو را همان‌جا کپی و در قسمت پایین وارد کنید.</p><p class="text-gray-500">در بیشتر موارد مجوز <b>Workers Scripts</b> به‌صورت خودکار اضافه می‌شود؛ اگر نشد، از بخش Custom Token آن را با سطح <b>Write</b> اضافه کنید تا لیست ورکرها و تغییر Placement کار کند (آمار کلی مصرف بدون آن هم کار می‌کند).</p>',
+    cfAutoTokenBtn: "ساخت خودکار توکن در کلودفلر",
+    cfLabelLabel: "نام نمایشی اکانت در پنل",
+    cfAddBtn: "افزودن و بررسی اعتبار",
+    cfStatsTitle: "وضعیت مصرف ورکر",
+    reloadBtn: "بارگذاری مجدد",
+    cfStatsDesc: "هر اکانت کلودفلری که در بخش «اتصال به API کلودفلر» اضافه کرده باشید، اینجا جداگانه نمایش داده می‌شود.",
+    cfNoConnTitle: "هیچ اتصال API ثبت نشده است",
+    cfNoConnDesc: "برای مشاهده میزان مصرف، در بخش «اتصال به API کلودفلر» یک اکانت اضافه کنید. اگر اصلاً به این آمار نیاز ندارید، همین‌طور که هست هم پنل کاملاً کار می‌کند.",
+    cleanIpTitle: "لیست‌های آی‌پی تمیز",
+    cleanIpDesc: "می‌توانید چند لیست جدا بسازید و موقع تنظیم هر لینک/بخش از داخل «ویرایش»، انتخاب کنید کدام لیست استفاده شود. لیست پیش‌فرض پنل قابل ویرایش است ولی حذف نمی‌شود.",
+    newListNamePlaceholder: "نام لیست جدید",
+    newListIpsPlaceholder: "یک آی‌پی در هر خط",
+    newListBtn: "ساخت لیست جدید",
+    backupTitle: "پشتیبان‌گیری و انتقال",
+    backupDesc: "یک فایل JSON دانلود یا بازیابی می‌کنید - همان فایلی که برای بازگرداندن پنل بعد از یک اشتباه، کوچ کردن به یک ورکر دیگر، یا فرستادن یک نسخه‌ی آماده برای شخص دیگری لازم دارید.",
+    backupSectionsLabel: "بخش‌های موردنظر (هم برای دانلود، هم برای بازیابی)",
+    backupSecSources: "سابسکریپشن‌ها",
+    backupSecLists: "لیست‌های آی‌پی",
+    backupSecCf: "اتصال‌های API",
+    downloadBackupBtn: "دانلود فایل پشتیبان",
+    restoreLabel: "بازیابی از فایل پشتیبان",
+    importModeMerge: "افزودن به موجود",
+    importModeReplace: "جایگزینی کامل",
+    importHint: "«افزودن به موجود» فقط موارد جدید را از بخش‌های تیک‌خورده‌ی بالا اضافه می‌کند. «جایگزینی کامل» فقط همان بخش‌های تیک‌خورده را با محتوای فایل عوض می‌کند (بخش‌های تیک‌نخورده دست‌نخورده می‌مانند) و قابل بازگشت نیست.",
+    restoreBtn: "بازیابی از فایل",
+    madeBy: "ساخته شده توسط",
+    newSourceFallbackName: "منبع جدید",
+    noSourceYet: "هنوز منبعی ساخته نشده - از فرم بالا شروع کنید.",
+    itemsSuffix: "مورد",
+    updatedAtLabel: "آپدیت:",
+    partsSuffix: "بخش",
+    catIndependentLabel: "سرور مستقل",
+    catMixedLabel: "ترکیبی",
+    catCloudflareLabel: "کلودفلر",
+    builtinLabel: "پیش‌فرض",
+    truncatedWarning: "⚠️ حداقل یکی از بخش‌های این منبع به سقف تعداد قالب‌ها رسیده.",
+    copyLinkBtn: "کپی لینک",
+    syncBtn: "سینک",
+    editBtn: "ویرایش",
+    deleteBtn: "حذف",
+    linkCopied: "لینک کپی شد!",
+    copyFailed: "کپی خودکار ممکن نشد - لینک:",
+    noName: "بدون نام",
+    confirmDeleteList: "این لیست حذف شود؟",
+    confirmDeleteSource: "آیا این منبع حذف شود؟",
+    confirmDeleteSourceCfg: "این منبع حذف شود؟",
+    confirmDeletePart: "این بخش به‌طور کامل حذف شود؟ این کار قابل بازگشت نیست.",
+    confirmReplaceImport: "این کار بخش‌های تیک‌خورده را با محتوای فایل پشتیبان جایگزین می‌کند و قابل بازگشت نیست. ادامه می‌دهید؟",
+    networkError: "خطای شبکه",
+    genericError: "خطای شبکه هنگام بررسی اعتبار",
+    listSaved: "لیست ذخیره شد",
+    listDeleted: "حذف شد",
+    listCreated: "لیست ساخته شد",
+    listNameIpRequired: "نام و حداقل یک آی‌پی لازم است",
+    cfCredsRequired: "وارد کردن Account ID و API Token لازم است",
+    cfChecking: "در حال بررسی اعتبار نزد کلودفلر...",
+    cfAdded: "اتصال API با موفقیت تأیید و اضافه شد!",
+    confirmDeleteCf: "این اتصال API حذف شود؟",
+    cfDeleted: "حذف شد",
+    cfDeleteFailed: "خطا در حذف",
+    fetchingScripts: "در حال دریافت فهرست ورکرها...",
+    scriptsFetchFailed: "دریافت فهرست ورکرها ناموفق بود - توکن باید مجوز Workers Scripts داشته باشد.",
+    noScriptsFound: "هیچ ورکری در این اکانت یافت نشد.",
+    smartPlacementBtn: "Smart Placement",
+    defaultPlacementBtn: "پیش‌فرض",
+    placementCustomRegionPlaceholder: "-- Region سفارشی/آماده --",
+    placementCustomRegionInputPlaceholder: "یا provider:region دلخواه، مثل azure:israelcentral",
+    placementCustomRegionHint: "اگر Region سفارشی پر باشد به‌جای گزینه‌ی بالا استفاده می‌شود.",
+    placementApplyBtn: "اعمال",
+    regionRequired: "یک Region انتخاب یا وارد کنید",
+    applying: "در حال اعمال...",
+    placementApplied: "Placement اعمال شد.",
+    stateLoadFailed: "خطا در دریافت اطلاعات",
+    noUrlOrManual: "لطفاً حداقل یک لینک سابسکریپشن یا یک کانفیگ دستی وارد کنید",
+    creatingConfigs: "در حال استخراج قالب‌ها و ساخت کانفیگ‌های جدید...",
+    sourceAdded: "منبع با موفقیت اضافه شد!",
+    syncingOne: "در حال همگام‌سازی این منبع...",
+    syncedOne: "همگام‌سازی شد",
+    syncingAll: "در حال همگام‌سازی همه‌ی منابع...",
+    syncedAll: "با موفقیت همگام‌سازی شد!",
+    selectOneSection: "حداقل یک بخش را انتخاب کنید",
+    exportingBackup: "در حال ساخت فایل پشتیبان...",
+    backupDownloaded: "فایل پشتیبان دانلود شد",
+    selectBackupFile: "یک فایل پشتیبان انتخاب کنید",
+    invalidJsonFile: "فایل انتخاب‌شده یک JSON معتبر نیست",
+    restoringBackup: "در حال بازیابی از فایل پشتیبان...",
+    fileReadFailed: "خواندن فایل ناموفق بود",
+    importedSourcesLabel: "سابسکریپشن",
+    importedListsLabel: "لیست آی‌پی",
+    importedCfLabel: "اتصال API",
+    importedSuffix: "بازیابی شد",
+    configsFetchFailed: "خطا در دریافت کانفیگ‌ها",
+    noPartsYet: "این منبع هنوز هیچ بخشی ندارد.",
+    slugUpdated: "آدرس سابسکریپشن به‌روزرسانی شد",
+    noConfigYet: "هنوز کانفیگی در این بخش نیست.",
+    selectAllToggleLabel: "انتخاب/لغو",
+    onlyKnownRangesLabel: "فقط جایگزینی هاست‌های کلودفلر",
+    onlyKnownRangesHint: "روشن: فقط هاست‌هایی که همین الان یک آی‌پی کلودفلر هستند جایگزین می‌شوند. خاموش: هاست همه‌ی کانفیگ‌های این بخش جایگزین می‌شود.",
+    autoRefreshLabel: "به‌روزرسانی خودکار این لینک",
+    everyLabel: "هر",
+    minutesLabel: "دقیقه",
+    distributionLabel: "نحوه‌ی توزیع آی‌پی",
+    multiplyLabel: "تکثیر",
+    randomLabel: "تصادفی",
+    portsLabel: "پورت‌های مورد نیاز (خالی = همه)",
+    oneConfigPerPortLabel: "یک کانفیگ برای هر مقصد",
+    oneConfigPerPortHint: "از بین کانفیگ‌هایی که سرور و پورت مقصدشان یکسان است، هر بار فقط یکی (به‌صورت ثابت) در خروجی نهایی استفاده می‌شود.",
+    partTruncatedWarning: "⚠️ این بخش به سقف تعداد قالب‌ها رسیده.",
+    savePartBtn: "ذخیره تنظیمات این بخش",
+    addConfigPlaceholder: "vless://...",
+    addBtn: "افزودن",
+    autoNumberLabel: "شماره‌گذاری خودکار",
+    cleanIpListLabel: "لیست آی‌پی تمیز",
+    manualConfigsTitle: "کانفیگ‌های دستی",
+    sourcePrefixLabel: "منبع",
+    noManualPartYet: "این منبع هنوز بخش «کانفیگ‌های دستی» ندارد.",
+    displaySettingsSummary: "تنظیمات نمایش نام کانفیگ",
+    emojiToggleLabel: "افزودن ایموجی قبل از نام کانفیگ‌ها",
+    usagePercentToggleLabel: "نمایش درصد مصرف ورکر جلوی نام",
+    usagePercentHint: "فقط برای کانفیگ‌های VLESS/Trojan/Shadowsocks کار می‌کند؛ کانفیگ‌های VMess به‌دلیل ساختار base64 پشتیبانی نمی‌شوند.",
+    selectCfConnPlaceholder: "-- انتخاب اتصال API --",
+    selectFirstConnHint: "-- ابتدا اتصال را انتخاب کنید --",
+    fetchingEllipsis: "-- در حال دریافت... --",
+    noScriptsOptionLabel: "-- ورکری یافت نشد --",
+    fetchErrorOptionLabel: "-- خطا در دریافت --",
+    needConnAndScript: "یک اتصال API و یک ورکر انتخاب کنید",
+    noCfConnYetHint: "ابتدا از بخش «اتصال به API کلودفلر» یک اکانت اضافه کنید.",
+    uploadLimitFixTitle: "رفع محدودیت آپلود / دور زدن فیلتر دامنه",
+    tlsOnlyBadge: "فقط کانفیگ‌های TLS",
+    uploadBoostDesc: "با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت پیشنهادی سازگار با این روش :",
+    uploadBoostEmptyHint: "هر کدام از سه فیلد زیر (fp/cs/fm) را خالی بگذارید و ذخیره کنید تا همان لایه اصلاً در کانفیگ اعمال نشود.",
+    protocolsApplyLabel: "این تنظیمات روی کدام پروتکل‌ها اعمال شود؟",
+    advancedSettingsSummary: "تنظیمات پیشرفته (هر پارامتر جدا قابل تنظیم است)",
+    fpLabel: "اثر انگشت TLS (fp)",
+    csLabel: "لیست رمزنگارها (cs) - فقط برای security=tls",
+    fmLabel: "تنظیمات فرگمنت (fm) - فقط برای security=tls",
+    resetToDefaultBtn: "بازنشانی به پیش‌فرض",
+    fpPresetPlaceholderCustom: "-- سفارشی (مقدار وارد شده با هیچ پیش‌فرضی مطابقت ندارد) --",
+    fpPresetPlaceholderPick: "-- انتخاب سریع از پیش‌فرض‌ها --",
+    randomFmLabel: "تصادفی (هر بار همگام‌سازی، پنل خودش با الگوریتم داخلی مقادیر عددی جدید تولید می‌کند)",
+    randomOtherLabel: "تصادفی (هر بار همگام‌سازی، یکی از مقادیر پیشنهادی بالا به‌صورت شانسی انتخاب می‌شود)",
+    uploadBoostResetDone: "تنظیمات به مقادیر پیش‌فرض پترنیها برگشت",
+    autoRefreshMinInvalid: "حداقل فاصله‌ی به‌روزرسانی ۱۵ دقیقه است",
+    partSettingsSaveFailed: "ذخیره تغییرات ناموفق بود",
+    partSettingsSaved: "تنظیمات این بخش ذخیره شد",
+    blockedConfigsCapped: "برخی کانفیگ‌ها به سقف تعداد بلاک رسیدند و اعمال نشدند",
+    configRequired: "یک کانفیگ وارد کنید",
+    configAdded: "کانفیگ اضافه شد",
+    deleteEntirePart: "حذف این بخش",
+    editNameTitle: "برای تغییر نام این کانفیگ کلیک کنید",
+    includeInOutputTitle: "استفاده در خروجی نهایی",
+    dragHandleTitle: "برای جابه‌جایی نگه دارید و بکشید",
+    undoTitle: "بازگردانی",
+    deleteTitle: "حذف",
+    fetchOkTitle: "آخرین واکشی موفق",
+    fetchFailTitle: "آخرین واکشی ناموفق - نسخه‌ی قبلی حفظ شد",
+    partDeleted: "بخش حذف شد"
+  },
+  en: {
+    appTitle: "Subscription Manager Panel",
+    appSubtitle: "Manage sources, clean IP lists, and Cloudflare connections",
+    syncAllBtn: "Sync All",
+    logoutBtn: "Logout",
+    passwordWarning: "⚠️ You're still using the insecure default password. Set a strong ADMIN_PASSWORD (as a Secret).",
+    newSourceTitle: "Create New Subscription",
+    newSourceDesc: "A subscription can include several source links, several direct configs, or a mix of both - each link/block becomes a fully independent “part” with its own settings.",
+    sourceNameLabel: "Display name",
+    sourceNamePlaceholder: "e.g. Germany Server 1",
+    sourceUrlsLabel: "Source links (optional - one per line)",
+    keepOriginalNamesLabel: "Keep configs' original names instead of the panel's automatic naming",
+    sourceManualLabel: "Direct configs (optional - one per line)",
+    categoryLabel: "Config type",
+    categoryWorker: "Worker config",
+    categoryIndependent: "Independent config",
+    useCleanIpLabel: "Use a clean IP replacement",
+    newSourceHint: "These are just the starting values; later, from “Edit”, you can configure each part separately (ports, IP list, distribution, auto-refresh, etc.).",
+    createSourceBtn: "Create Subscription",
+    sourcesListTitle: "Subscriptions",
+    editorDefaultTitle: "Subscription settings",
+    closeBtn: "Close",
+    subscriptionAddressLabel: "Subscription address",
+    saveBtn: "Save",
+    slugHint: "Latin letters and digits, dashes and underscores only; 4 to 32 characters.",
+    editorPartsDesc: "Each link/part is fully independent and has its own settings; auto-refresh is also set separately for each. Each part's config list is always shown complete and unfiltered; filters only affect the final output.",
+    cfConnectionTitle: "Cloudflare API Connection",
+    cfConnectionGuide: '<strong class="block text-gray-300 mb-1">This section is entirely optional - it powers Workers usage stats, live usage % next to config names, and Placement control:</strong><p>1) Click \u201cAuto-create a Cloudflare token\u201d. A page opens with the account and permissions pre-selected (including <b>Account Settings: Read</b>, <b>Account Analytics: Read</b>, <b>Workers Scripts: Write</b>).</p><p>2) Click <b>Review token</b> to see the Token Summary, then click <b>Create Token</b>.</p><p>3) On the final page, both the <b>Account ID</b> and the <b>API Token</b> are shown - since the token is only ever shown that one time, copy both right there and paste them in below.</p><p class="text-gray-500">In most cases the <b>Workers Scripts</b> permission gets added automatically; if it doesn\u2019t, add it with <b>Write</b> access from the Custom Token section so the worker list and Placement changes work (overall usage stats work fine without it).</p>',
+    cfAutoTokenBtn: "Auto-create a Cloudflare token",
+    cfLabelLabel: "Display name for this account in the panel",
+    cfAddBtn: "Add and verify",
+    cfStatsTitle: "Worker Usage Status",
+    reloadBtn: "Reload",
+    cfStatsDesc: "Every Cloudflare account you've added under “Cloudflare API Connection” is shown here separately.",
+    cfNoConnTitle: "No API connection added yet",
+    cfNoConnDesc: "To see usage, add an account under “Cloudflare API Connection”. If you don't need this at all, the panel works fine without it.",
+    cleanIpTitle: "Clean IP Lists",
+    cleanIpDesc: "You can create several separate lists and pick which one to use per link/part from “Edit”. The panel's default list can be edited but not deleted.",
+    newListNamePlaceholder: "New list name",
+    newListIpsPlaceholder: "One IP per line",
+    newListBtn: "Create New List",
+    backupTitle: "Backup & Transfer",
+    backupDesc: "Download or restore a JSON file - the same file you'll need to recover the panel after a mistake, migrate to another Worker, or send a ready-made copy to someone else.",
+    backupSectionsLabel: "Sections to include (for both download and restore)",
+    backupSecSources: "Subscriptions",
+    backupSecLists: "IP lists",
+    backupSecCf: "API connections",
+    downloadBackupBtn: "Download Backup File",
+    restoreLabel: "Restore from backup file",
+    importModeMerge: "Add to existing",
+    importModeReplace: "Full replace",
+    importHint: "“Add to existing” only adds new items from the checked sections above. “Full replace” swaps only the checked sections with the file's content (unchecked sections stay untouched) and cannot be undone.",
+    restoreBtn: "Restore from file",
+    madeBy: "Made by",
+    newSourceFallbackName: "New source",
+    noSourceYet: "No source created yet - start with the form above.",
+    itemsSuffix: "items",
+    updatedAtLabel: "Updated:",
+    partsSuffix: "parts",
+    catIndependentLabel: "Independent server",
+    catMixedLabel: "Mixed",
+    catCloudflareLabel: "Cloudflare",
+    builtinLabel: "Default",
+    truncatedWarning: "⚠️ At least one part of this source has hit the template count limit.",
+    copyLinkBtn: "Copy Link",
+    syncBtn: "Sync",
+    editBtn: "Edit",
+    deleteBtn: "Delete",
+    linkCopied: "Link copied!",
+    copyFailed: "Couldn't copy automatically - link:",
+    noName: "Unnamed",
+    confirmDeleteList: "Delete this list?",
+    confirmDeleteSource: "Delete this source?",
+    confirmDeleteSourceCfg: "Delete this source?",
+    confirmDeletePart: "Completely delete this part? This can't be undone.",
+    confirmReplaceImport: "This will replace the checked sections with the backup file's content and can't be undone. Continue?",
+    networkError: "Network error",
+    genericError: "Network error while verifying",
+    listSaved: "List saved",
+    listDeleted: "Deleted",
+    listCreated: "List created",
+    listNameIpRequired: "A name and at least one IP are required",
+    cfCredsRequired: "Account ID and API Token are required",
+    cfChecking: "Verifying with Cloudflare...",
+    cfAdded: "API connection verified and added successfully!",
+    confirmDeleteCf: "Delete this API connection?",
+    cfDeleted: "Deleted",
+    cfDeleteFailed: "Failed to delete",
+    fetchingScripts: "Fetching worker list...",
+    scriptsFetchFailed: "Failed to fetch worker list - the token needs Workers Scripts permission.",
+    noScriptsFound: "No workers found in this account.",
+    smartPlacementBtn: "Smart Placement",
+    defaultPlacementBtn: "Default",
+    placementCustomRegionPlaceholder: "-- Custom/preset region --",
+    placementCustomRegionInputPlaceholder: "or a custom provider:region, e.g. azure:israelcentral",
+    placementCustomRegionHint: "If the custom region field is filled, it's used instead of the option above.",
+    placementApplyBtn: "Apply",
+    regionRequired: "Select or enter a region",
+    applying: "Applying...",
+    placementApplied: "Placement applied.",
+    stateLoadFailed: "Error loading data",
+    noUrlOrManual: "Please enter at least one subscription link or one manual config",
+    creatingConfigs: "Extracting templates and creating new configs...",
+    sourceAdded: "Source added successfully!",
+    syncingOne: "Syncing this source...",
+    syncedOne: "Synced",
+    syncingAll: "Syncing all sources...",
+    syncedAll: "Synced successfully!",
+    selectOneSection: "Select at least one section",
+    exportingBackup: "Creating backup file...",
+    backupDownloaded: "Backup file downloaded",
+    selectBackupFile: "Select a backup file",
+    invalidJsonFile: "The selected file is not valid JSON",
+    restoringBackup: "Restoring from backup file...",
+    fileReadFailed: "Failed to read file",
+    importedSourcesLabel: "subscription(s)",
+    importedListsLabel: "IP list(s)",
+    importedCfLabel: "API connection(s)",
+    importedSuffix: "restored",
+    configsFetchFailed: "Error fetching configs",
+    noPartsYet: "This source has no parts yet.",
+    slugUpdated: "Subscription address updated",
+    noConfigYet: "No configs in this part yet.",
+    selectAllToggleLabel: "Select/deselect all",
+    onlyKnownRangesLabel: "Only replace Cloudflare hosts",
+    onlyKnownRangesHint: "On: only hosts that are currently a Cloudflare IP get replaced. Off: the host of every config in this part gets replaced.",
+    autoRefreshLabel: "Auto-refresh this link",
+    everyLabel: "Every",
+    minutesLabel: "minutes",
+    distributionLabel: "IP distribution method",
+    multiplyLabel: "Multiply",
+    randomLabel: "Random",
+    portsLabel: "Required ports (empty = all)",
+    oneConfigPerPortLabel: "One config per destination",
+    oneConfigPerPortHint: "Among configs that share the same destination server and port, only one (chosen consistently) is used in the final output at a time.",
+    partTruncatedWarning: "⚠️ This part has hit the template count limit.",
+    savePartBtn: "Save this part's settings",
+    addConfigPlaceholder: "vless://...",
+    addBtn: "Add",
+    autoNumberLabel: "Auto-numbering",
+    cleanIpListLabel: "Clean IP list",
+    manualConfigsTitle: "Manual Configs",
+    sourcePrefixLabel: "Source",
+    noManualPartYet: "This source doesn't have a “manual configs” part yet.",
+    displaySettingsSummary: "Config name display settings",
+    emojiToggleLabel: "Add an emoji before config names",
+    usagePercentToggleLabel: "Show live worker usage % in the name",
+    usagePercentHint: "Only works for VLESS/Trojan/Shadowsocks configs; VMess configs aren't supported due to their base64 structure.",
+    selectCfConnPlaceholder: "-- Select an API connection --",
+    selectFirstConnHint: "-- Select a connection first --",
+    fetchingEllipsis: "-- Loading... --",
+    noScriptsOptionLabel: "-- No workers found --",
+    fetchErrorOptionLabel: "-- Fetch error --",
+    needConnAndScript: "Select an API connection and a worker",
+    noCfConnYetHint: "First add an account under “Cloudflare API Connection”.",
+    uploadLimitFixTitle: "Upload limit bypass / domain filtering bypass",
+    tlsOnlyBadge: "TLS configs only",
+    uploadBoostDesc: "Using the Patternia method, changes the TLS fingerprint and fragment settings on TLS configs to make detection and throttling by filtering harder. Recommended compatible client:",
+    uploadBoostEmptyHint: "Leave any of the three fields below (fp/cs/fm) empty and save to skip applying that layer to the config at all.",
+    protocolsApplyLabel: "Which protocols should this apply to?",
+    advancedSettingsSummary: "Advanced settings (each parameter is separately adjustable)",
+    fpLabel: "TLS fingerprint (fp)",
+    csLabel: "Cipher suites (cs) - only for security=tls",
+    fmLabel: "Fragment settings (fm) - only for security=tls",
+    resetToDefaultBtn: "Reset to defaults",
+    fpPresetPlaceholderCustom: "-- Custom (value doesn't match any preset) --",
+    fpPresetPlaceholderPick: "-- Quick pick from presets --",
+    randomFmLabel: "Random (on every sync, the panel generates new numeric values itself using an internal algorithm)",
+    randomOtherLabel: "Random (on every sync, one of the presets above is picked at random)",
+    uploadBoostResetDone: "Settings reset to Patternia defaults",
+    autoRefreshMinInvalid: "The minimum refresh interval is 15 minutes",
+    partSettingsSaveFailed: "Failed to save changes",
+    partSettingsSaved: "This part's settings were saved",
+    blockedConfigsCapped: "Some configs hit the block-count limit and weren't applied",
+    configRequired: "Enter a config",
+    configAdded: "Config added",
+    deleteEntirePart: "Delete this part",
+    editNameTitle: "Click to rename this config",
+    includeInOutputTitle: "Include in final output",
+    dragHandleTitle: "Hold and drag to reorder",
+    undoTitle: "Undo",
+    deleteTitle: "Delete",
+    fetchOkTitle: "Last fetch succeeded",
+    fetchFailTitle: "Last fetch failed - the previous version was kept",
+    partDeleted: "Part deleted"
+  }
+};
+function t(key) {
+  var dict = UI_TEXT[currentLang] || UI_TEXT.en;
+  return dict.hasOwnProperty(key) ? dict[key] : (UI_TEXT.en[key] || key);
+}
+function applyStaticTranslations() {
+  document.title = t("appTitle");
+  var pageTitleEl = document.getElementById("pageTitle");
+  if (pageTitleEl) pageTitleEl.textContent = t("appTitle");
+  Array.prototype.slice.call(document.querySelectorAll("[data-i18n]")).forEach(function(el) {
+    el.textContent = t(el.getAttribute("data-i18n"));
+  });
+  Array.prototype.slice.call(document.querySelectorAll("[data-i18n-placeholder]")).forEach(function(el) {
+    el.placeholder = t(el.getAttribute("data-i18n-placeholder"));
+  });
+  Array.prototype.slice.call(document.querySelectorAll("[data-i18n-html]")).forEach(function(el) {
+    el.innerHTML = t(el.getAttribute("data-i18n-html"));
+  });
+  var langLabel = document.getElementById("langToggleLabel");
+  if (langLabel) langLabel.textContent = currentLang === "fa" ? "EN" : "FA";
+}
+function toggleLanguage() {
+  currentLang = currentLang === "fa" ? "en" : "fa";
+  try {
+    localStorage.setItem("subManagerLang", currentLang);
+  } catch (e) {}
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = currentLang === "fa" ? "rtl" : "ltr";
+  document.documentElement.classList.toggle("lang-en", currentLang === "en");
+  applyStaticTranslations();
+  loadData();
+  if (editorSourceId) refreshConfigEditor();
+}
+applyStaticTranslations();
 var cleanIpListsCache = [];
 var sourceItemsCache = [];
 var editorSourceId = null;
@@ -12,49 +424,72 @@ var editorPartsCache = {};
 var editorPartsOrder = [];
 var editorListsCache = [];
 var editorCfConnectionsCache = [];
-var UPLOAD_BOOST_FP_PRESETS_CLIENT = [
-  { value: "unsafe", label: "پترنیها - unsafe (پیشنهادی)" },
-  { value: "chrome", label: "Chrome" },
-  { value: "firefox", label: "Firefox" },
-  { value: "safari", label: "Safari" },
-  { value: "ios", label: "iOS Safari" },
-  { value: "android", label: "Android Chrome" },
-  { value: "edge", label: "Edge" },
-  { value: "none", label: "None (بدون اثر انگشت)" }
-];
-var UPLOAD_BOOST_CS_PRESETS_CLIENT = [
-  { key: "patternia", label: "پترنیها (پیشنهادی)", value: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256" },
-  { key: "chrome_mobile", label: "Chrome موبایل", value: "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384" },
-  { key: "firefox", label: "Firefox", value: "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA" },
-  { key: "chrome_desktop", label: "Chrome دسکتاپ", value: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA" },
-  { key: "safari", label: "Safari", value: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA" },
-  { key: "tls13_only", label: "فقط TLS 1.3", value: "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256" },
-  { key: "mixed", label: "ترکیبی (مدرن اول)", value: "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA" }
-];
-var UPLOAD_BOOST_FM_PRESETS_CLIENT = [
-  { key: "patternia", label: "پترنیها (پیشنهادی)", value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["5","94","1"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["109","1"],"delays":["1"],"maxSplit":"355"}}]}' },
-  { key: "aggressive", label: "تهاجمی (تکه‌های خیلی کوچک)", value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1","50","2"],"delays":["1"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["40","1"],"delays":["2"],"maxSplit":"500"}}]}' },
-  { key: "balanced", label: "متعادل", value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3","120","2"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["80","2"],"delays":["1"],"maxSplit":"300"}}]}' },
-  { key: "fast", label: "سریع (تکه‌های بزرگ‌تر)", value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["8","180","3"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["150","2"],"delays":["0"],"maxSplit":"200"}}]}' }
-];
-var PLACEMENT_REGION_PRESETS_CLIENT = [
-  { value: "azure:israelcentral", label: "Azure - Israel Central" },
-  { value: "gcp:me-west1", label: "GCP - Tel Aviv (me-west1)" },
-  { value: "aws:me-south1", label: "AWS - Bahrain (me-south1)" },
-  { value: "azure:uaenorth", label: "Azure - UAE North" },
-  { value: "aws:eu-central-1", label: "AWS - Frankfurt (eu-central-1)" },
-  { value: "gcp:europe-west1", label: "GCP - Belgium (europe-west1)" },
-  { value: "azure:westeurope", label: "Azure - West Europe" },
-  { value: "aws:us-east-1", label: "AWS - N. Virginia (us-east-1)" },
-  { value: "aws:us-west-1", label: "AWS - N. California (us-west-1)" },
-  { value: "gcp:us-central1", label: "GCP - Iowa (us-central1)" },
-  { value: "azure:eastus", label: "Azure - East US" },
-  { value: "aws:ap-southeast-1", label: "AWS - Singapore (ap-southeast-1)" },
-  { value: "gcp:asia-east1", label: "GCP - Taiwan (asia-east1)" },
-  { value: "azure:southeastasia", label: "Azure - Southeast Asia" },
-  { value: "aws:ap-northeast-1", label: "AWS - Tokyo (ap-northeast-1)" },
-  { value: "gcp:australia-southeast1", label: "GCP - Sydney (australia-southeast1)" }
-];
+function uploadBoostFpPresets() {
+  return currentLang === "fa" ? [
+    { value: "unsafe", label: "پترنیها - unsafe (پیشنهادی)" },
+    { value: "chrome", label: "Chrome" },
+    { value: "firefox", label: "Firefox" },
+    { value: "safari", label: "Safari" },
+    { value: "ios", label: "iOS Safari" },
+    { value: "android", label: "Android Chrome" },
+    { value: "edge", label: "Edge" },
+    { value: "none", label: "None (بدون اثر انگشت)" }
+  ] : [
+    { value: "unsafe", label: "Patternia - unsafe (recommended)" },
+    { value: "chrome", label: "Chrome" },
+    { value: "firefox", label: "Firefox" },
+    { value: "safari", label: "Safari" },
+    { value: "ios", label: "iOS Safari" },
+    { value: "android", label: "Android Chrome" },
+    { value: "edge", label: "Edge" },
+    { value: "none", label: "None (no fingerprint)" }
+  ];
+}
+function uploadBoostCsPresets() {
+  var labels = currentLang === "fa"
+    ? { patternia: "پترنیها (پیشنهادی)", chrome_mobile: "Chrome موبایل", firefox: "Firefox", chrome_desktop: "Chrome دسکتاپ", safari: "Safari", tls13_only: "فقط TLS 1.3", mixed: "ترکیبی (مدرن اول)" }
+    : { patternia: "Patternia (recommended)", chrome_mobile: "Chrome Mobile", firefox: "Firefox", chrome_desktop: "Chrome Desktop", safari: "Safari", tls13_only: "TLS 1.3 only", mixed: "Mixed (modern first)" };
+  return [
+    { key: "patternia", label: labels.patternia, value: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256" },
+    { key: "chrome_mobile", label: labels.chrome_mobile, value: "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384" },
+    { key: "firefox", label: labels.firefox, value: "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA" },
+    { key: "chrome_desktop", label: labels.chrome_desktop, value: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA" },
+    { key: "safari", label: labels.safari, value: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA" },
+    { key: "tls13_only", label: labels.tls13_only, value: "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256" },
+    { key: "mixed", label: labels.mixed, value: "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA" }
+  ];
+}
+function uploadBoostFmPresets() {
+  var labels = currentLang === "fa"
+    ? { patternia: "پترنیها (پیشنهادی)", aggressive: "تهاجمی (تکه‌های خیلی کوچک)", balanced: "متعادل", fast: "سریع (تکه‌های بزرگ‌تر)" }
+    : { patternia: "Patternia (recommended)", aggressive: "Aggressive (very small chunks)", balanced: "Balanced", fast: "Fast (larger chunks)" };
+  return [
+    { key: "patternia", label: labels.patternia, value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["5","94","1"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["109","1"],"delays":["1"],"maxSplit":"355"}}]}' },
+    { key: "aggressive", label: labels.aggressive, value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1","50","2"],"delays":["1"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["40","1"],"delays":["2"],"maxSplit":"500"}}]}' },
+    { key: "balanced", label: labels.balanced, value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3","120","2"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["80","2"],"delays":["1"],"maxSplit":"300"}}]}' },
+    { key: "fast", label: labels.fast, value: '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["8","180","3"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["150","2"],"delays":["0"],"maxSplit":"200"}}]}' }
+  ];
+}
+function placementRegionPresets() {
+  return [
+    { value: "azure:israelcentral", label: "Azure - Israel Central" },
+    { value: "gcp:me-west1", label: "GCP - Tel Aviv (me-west1)" },
+    { value: "aws:me-south1", label: "AWS - Bahrain (me-south1)" },
+    { value: "azure:uaenorth", label: "Azure - UAE North" },
+    { value: "aws:eu-central-1", label: "AWS - Frankfurt (eu-central-1)" },
+    { value: "gcp:europe-west1", label: "GCP - Belgium (europe-west1)" },
+    { value: "azure:westeurope", label: "Azure - West Europe" },
+    { value: "aws:us-east-1", label: "AWS - N. Virginia (us-east-1)" },
+    { value: "aws:us-west-1", label: "AWS - N. California (us-west-1)" },
+    { value: "gcp:us-central1", label: "GCP - Iowa (us-central1)" },
+    { value: "azure:eastus", label: "Azure - East US" },
+    { value: "aws:ap-southeast-1", label: "AWS - Singapore (ap-southeast-1)" },
+    { value: "gcp:asia-east1", label: "GCP - Taiwan (asia-east1)" },
+    { value: "azure:southeastasia", label: "Azure - Southeast Asia" },
+    { value: "aws:ap-northeast-1", label: "AWS - Tokyo (ap-northeast-1)" },
+    { value: "gcp:australia-southeast1", label: "GCP - Sydney (australia-southeast1)" }
+  ];
+}
 // Renders one upload-boost field (fp/cs/fm): a preset dropdown that just
 // fills the paired text field on selection (it does not stay "bound" to the
 // current value - the text field is the single source of truth), the text
@@ -65,11 +500,11 @@ var PLACEMENT_REGION_PRESETS_CLIENT = [
 function uploadBoostFieldHtml(field, partId, currentValue, labelText) {
   var isRandom = (currentValue || "").trim().toLowerCase() === "random";
   var textValue = isRandom ? "" : currentValue || "";
-  var presets = field === "fp" ? UPLOAD_BOOST_FP_PRESETS_CLIENT : field === "cs" ? UPLOAD_BOOST_CS_PRESETS_CLIENT : UPLOAD_BOOST_FM_PRESETS_CLIENT;
+  var presets = field === "fp" ? uploadBoostFpPresets() : field === "cs" ? uploadBoostCsPresets() : uploadBoostFmPresets();
   var matchedPreset = presets.find(function(p) {
     return (p.value !== undefined ? p.value : p.key) === textValue;
   });
-  var placeholderLabel = matchedPreset ? "-- سفارشی (مقدار وارد شده با هیچ پیش‌فرضی مطابقت ندارد) --" : "-- انتخاب سریع از پیش‌فرض‌ها --";
+  var placeholderLabel = matchedPreset ? t("fpPresetPlaceholderCustom") : t("fpPresetPlaceholderPick");
   // The placeholder option is re-labeled "custom" once a non-preset value is
   // present, and re-selected, so the dropdown always reflects reality
   // instead of silently reverting to "-- quick pick --" after a preset (or
@@ -88,9 +523,7 @@ function uploadBoostFieldHtml(field, partId, currentValue, labelText) {
   // every sync; fm randomize by generating a fresh set of numeric
   // parameters (within vetted ranges) on every sync instead - these are
   // genuinely different mechanisms, so the checkbox label says which one.
-  var randomLabel = field === "fm"
-    ? "تصادفی (هر بار همگام‌سازی، پنل خودش با الگوریتم داخلی مقادیر عددی جدید تولید می‌کند)"
-    : "تصادفی (هر بار همگام‌سازی، یکی از مقادیر پیشنهادی بالا به‌صورت شانسی انتخاب می‌شود)";
+  var randomLabel = field === "fm" ? t("randomFmLabel") : t("randomOtherLabel");
   return (
     '<div><label class="block text-[10px] mb-1 text-gray-400">' + labelText + "</label>" +
     '<select class="upload-boost-preset-select w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs" dir="ltr" data-field="' + fieldId + '"' + (isRandom ? " disabled" : "") + ' id="' + selectId + '">' + optionsHtml + "</select>" +
@@ -101,7 +534,7 @@ function uploadBoostFieldHtml(field, partId, currentValue, labelText) {
 }
 function markUploadBoostSelectAsCustom(selectEl) {
   var placeholderOption = selectEl.querySelector('option[value=""]');
-  if (placeholderOption) placeholderOption.textContent = "-- سفارشی (مقدار وارد شده با هیچ پیش‌فرضی مطابقت ندارد) --";
+  if (placeholderOption) placeholderOption.textContent = t("fpPresetPlaceholderCustom");
   selectEl.value = "";
 }
 document.body.addEventListener("change", function(e) {
@@ -160,18 +593,26 @@ function resetUploadBoostDefaults(partId) {
   var vlessEl = document.getElementById("uploadBoostProtoVless-" + partId);
   var trojanEl = document.getElementById("uploadBoostProtoTrojan-" + partId);
   if (fpField) { fpField.value = "unsafe"; fpField.disabled = false; }
-  if (csField) { csField.value = UPLOAD_BOOST_CS_PRESETS_CLIENT[0].value; csField.disabled = false; }
-  if (fmField) { fmField.value = UPLOAD_BOOST_FM_PRESETS_CLIENT[0].value; fmField.disabled = false; }
+  if (csField) { csField.value = uploadBoostCsPresets()[0].value; csField.disabled = false; }
+  if (fmField) { fmField.value = uploadBoostFmPresets()[0].value; fmField.disabled = false; }
   if (fpRandom) fpRandom.checked = false;
   if (csRandom) csRandom.checked = false;
   if (fmRandom) fmRandom.checked = false;
-  ["uploadBoostFPSelect-", "uploadBoostCSSelect-", "uploadBoostFMSelect-"].forEach(function(prefix) {
-    var sel = document.getElementById(prefix + partId);
-    if (sel) sel.disabled = false;
+  // Also point each preset <select> at the value just restored - otherwise
+  // the dropdown is left showing whatever it displayed before the reset
+  // (often the blank/custom placeholder) instead of the Patternia preset
+  // that was actually just applied to the field.
+  ["FP", "CS", "FM"].forEach(function(field) {
+    var sel = document.getElementById("uploadBoost" + field + "Select-" + partId);
+    var fieldEl = document.getElementById("uploadBoost" + field + "-" + partId);
+    if (sel) {
+      sel.disabled = false;
+      if (fieldEl) sel.value = fieldEl.value;
+    }
   });
   if (vlessEl) vlessEl.checked = true;
   if (trojanEl) trojanEl.checked = true;
-  showToast("تنظیمات به مقادیر پیش‌فرض پترنیها برگشت", "success");
+  showToast(t("uploadBoostResetDone"), "success");
 }
 function escapeHtml(s) {
   var str = s === null || s === void 0 ? "" : String(s);
@@ -201,54 +642,58 @@ function showToast(msg, type) {
     toast.classList.add("translate-y-24", "opacity-0");
   }, 3e3);
 }
-var ERROR_MESSAGES = {
-  EXPORT_FAILED: "\u0633\u0627\u062E\u062A \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  IMPORT_INVALID_BACKUP: "\u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A \u06CC\u0627 \u062E\u0631\u0627\u0628 \u0634\u062F\u0647",
-  LIST_NAME_REQUIRED: "\u06CC\u06A9 \u0646\u0627\u0645 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0644\u06CC\u0633\u062A \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F",
-  LIST_NEEDS_ONE_IP: "\u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0622\u06CC\u200C\u067E\u06CC \u062F\u0631 \u0644\u06CC\u0633\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A",
-  LIST_ADD_FAILED: "\u0627\u0641\u0632\u0648\u062F\u0646 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  LIST_NOT_FOUND: "\u0644\u06CC\u0633\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
-  LIST_UPDATE_FAILED: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  LIST_DEFAULT_UNDELETABLE: "\u0644\u06CC\u0633\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u0646\u0644 \u0642\u0627\u0628\u0644 \u062D\u0630\u0641 \u0646\u06CC\u0633\u062A",
-  LIST_DELETE_FAILED: "\u062D\u0630\u0641 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  LIST_MAX_IPS: "\u062D\u062F\u0627\u06A9\u062B\u0631 {limit} \u0622\u06CC\u200C\u067E\u06CC \u062F\u0631 \u0647\u0631 \u0644\u06CC\u0633\u062A \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.",
-  LIST_MAX_LISTS: "\u062D\u062F\u0627\u06A9\u062B\u0631 {limit} \u0644\u06CC\u0633\u062A \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.",
-  SOURCE_NOT_FOUND: "\u0645\u0646\u0628\u0639 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
-  SOURCE_NEEDS_URL_OR_MANUAL: "\u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0644\u06CC\u0646\u06A9 \u0633\u0627\u0628\u0633\u06A9\u0631\u06CC\u067E\u0634\u0646 \u06CC\u0627 \u06CC\u06A9 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u062F\u0633\u062A\u06CC \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F",
-  SOURCE_NO_VALID_CONFIGS: "\u0647\u06CC\u0686 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0645\u0639\u062A\u0628\u0631\u06CC \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0646\u0634\u062F",
-  SOURCE_ADD_FAILED: "\u0627\u0641\u0632\u0648\u062F\u0646 \u0645\u0646\u0628\u0639 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  SOURCE_DELETE_FAILED: "\u062D\u0630\u0641 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  SOURCE_MAX_URLS: "\u062D\u062F\u0627\u06A9\u062B\u0631 {limit} \u0644\u06CC\u0646\u06A9 \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.",
-  SOURCE_MAX_MANUAL_LINES: "\u062D\u062F\u0627\u06A9\u062B\u0631 {limit} \u062E\u0637 \u062F\u0633\u062A\u06CC \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.",
-  SLUG_TAKEN: "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0642\u0628\u0644\u0627\u064B \u0628\u0631\u0627\u06CC \u06CC\u06A9 \u0633\u0627\u0628\u0633\u06A9\u0631\u06CC\u067E\u0634\u0646 \u062F\u06CC\u06AF\u0631 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.",
-  SLUG_UPDATE_FAILED: "\u062A\u063A\u06CC\u06CC\u0631 \u0644\u06CC\u0646\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  SLUG_INVALID_FORMAT: "\u0644\u06CC\u0646\u06A9 \u0628\u0627\u06CC\u062F \u0628\u06CC\u0646 {min} \u062A\u0627 {max} \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0627\u0646\u06AF\u0644\u06CC\u0633\u06CC\u060C \u0639\u062F\u062F\u060C \u062E\u0637 \u062A\u06CC\u0631\u0647 \u06CC\u0627 \u0632\u06CC\u0631\u062E\u0637 \u0628\u0627\u0634\u062F.",
-  PART_NOT_FOUND: "\u0627\u06CC\u0646 \u0628\u062E\u0634 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
-  PART_UPDATE_FAILED: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  PART_DELETE_FAILED: "\u062D\u0630\u0641 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_BATCH_UPDATE_FAILED: "\u0630\u062E\u06CC\u0631\u0647 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  PART_MAX_CONFIGS: "\u0627\u06CC\u0646 \u0628\u062E\u0634 \u0628\u0647 \u0633\u0642\u0641 {limit} \u0642\u0627\u0644\u0628 \u0631\u0633\u06CC\u062F\u0647 \u0627\u0633\u062A.",
-  PART_MAX_BLOCKED: "\u062D\u062F\u0627\u06A9\u062B\u0631 {limit} \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0628\u0644\u0627\u06A9\u200C\u0634\u062F\u0647 \u062F\u0631 \u0647\u0631 \u0628\u062E\u0634 \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.",
-  PART_MAX_CUSTOM_NAMES: "\u0633\u0642\u0641 \u062A\u0639\u062F\u0627\u062F \u0646\u0627\u0645\u200C\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u0627\u06CC\u0646 \u0628\u062E\u0634 ({limit}) \u067E\u0631 \u0634\u062F\u0647 \u0627\u0633\u062A.",
-  PART_OUTPUT_TRUNCATED: "\u062A\u0639\u062F\u0627\u062F \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0646\u0647\u0627\u06CC\u06CC \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0627\u0632 \u0633\u0642\u0641 \u0645\u062C\u0627\u0632 ({limit}) \u0628\u06CC\u0634\u062A\u0631 \u0628\u0648\u062F\u061B \u0641\u0642\u0637 {kept} \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0627\u0632 {total} \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062A\u0635\u0627\u062F\u0641\u06CC \u062F\u0631 \u062E\u0631\u0648\u062C\u06CC \u0642\u0631\u0627\u0631 \u06AF\u0631\u0641\u062A.",
-  SYNC_FAILED: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_EMPTY: "\u06A9\u0627\u0646\u0641\u06CC\u06AF \u062E\u0627\u0644\u06CC \u0627\u0633\u062A",
-  CONFIG_INVALID_FORMAT: "\u0641\u0631\u0645\u062A \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A",
-  CONFIG_DUPLICATE: "\u0627\u06CC\u0646 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0627\u0632 \u0642\u0628\u0644 \u0648\u062C\u0648\u062F \u062F\u0627\u0631\u062F",
-  CONFIG_ADD_FAILED: "\u0627\u0641\u0632\u0648\u062F\u0646 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_NOT_FOUND: "\u06A9\u0627\u0646\u0641\u06CC\u06AF \u06CC\u0627\u0641\u062A \u0646\u0634\u062F",
-  CONFIG_DELETE_FAILED: "\u062D\u0630\u0641 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_TOGGLE_FAILED: "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0628\u0644\u0627\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_BULK_TOGGLE_FAILED: "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u06AF\u0631\u0648\u0647\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_RENAME_FAILED: "\u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
-  CONFIG_REORDER_FAILED: "\u062A\u063A\u06CC\u06CC\u0631 \u062A\u0631\u062A\u06CC\u0628 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F",
+var ERROR_MESSAGES_FA = {
+  EXPORT_FAILED: "ساخت فایل پشتیبان ناموفق بود",
+  IMPORT_INVALID_BACKUP: "فایل پشتیبان نامعتبر است یا خراب شده",
+  LIST_NAME_REQUIRED: "یک نام برای این لیست وارد کنید",
+  LIST_NEEDS_ONE_IP: "حداقل یک آی‌پی در لیست لازم است",
+  LIST_ADD_FAILED: "افزودن لیست ناموفق بود",
+  LIST_NOT_FOUND: "لیست یافت نشد",
+  LIST_UPDATE_FAILED: "ویرایش لیست ناموفق بود",
+  LIST_DEFAULT_UNDELETABLE: "لیست پیش‌فرض پنل قابل حذف نیست",
+  LIST_DELETE_FAILED: "حذف لیست ناموفق بود",
+  LIST_MAX_IPS: "حداکثر {limit} آی‌پی در هر لیست مجاز است.",
+  LIST_MAX_LISTS: "حداکثر {limit} لیست مجاز است.",
+  SOURCE_NOT_FOUND: "منبع یافت نشد",
+  SOURCE_NEEDS_URL_OR_MANUAL: "حداقل یک لینک سابسکریپشن یا یک کانفیگ دستی وارد کنید",
+  SOURCE_NO_VALID_CONFIGS: "هیچ کانفیگ معتبری استخراج نشد",
+  SOURCE_ADD_FAILED: "افزودن منبع ناموفق بود",
+  SOURCE_DELETE_FAILED: "حذف ناموفق بود",
+  SOURCE_MAX_URLS: "حداکثر {limit} لینک مجاز است.",
+  SOURCE_MAX_MANUAL_LINES: "حداکثر {limit} خط دستی مجاز است.",
+  SLUG_TAKEN: "این لینک قبلاً برای یک سابسکریپشن دیگر استفاده شده است.",
+  SLUG_UPDATE_FAILED: "تغییر لینک ناموفق بود",
+  SLUG_INVALID_FORMAT: "لینک باید بین {min} تا {max} کاراکتر انگلیسی، عدد، خط تیره یا زیرخط باشد.",
+  PART_NOT_FOUND: "این بخش یافت نشد",
+  PART_UPDATE_FAILED: "به‌روزرسانی ناموفق بود",
+  PART_DELETE_FAILED: "حذف این بخش ناموفق بود",
+  CONFIG_BATCH_UPDATE_FAILED: "ذخیره تغییرات ناموفق بود",
+  PART_MAX_CONFIGS: "این بخش به سقف {limit} قالب رسیده است.",
+  PART_MAX_BLOCKED: "حداکثر {limit} کانفیگ بلاک‌شده در هر بخش مجاز است.",
+  PART_MAX_CUSTOM_NAMES: "سقف تعداد نام‌های سفارشی این بخش ({limit}) پر شده است.",
+  PART_OUTPUT_TRUNCATED: "تعداد کانفیگ نهایی این بخش از سقف مجاز ({limit}) بیشتر بود؛ فقط {kept} کانفیگ از {total} به‌صورت تصادفی در خروجی قرار گرفت.",
+  SYNC_FAILED: "همگام‌سازی ناموفق بود",
+  CONFIG_EMPTY: "کانفیگ خالی است",
+  CONFIG_INVALID_FORMAT: "فرمت کانفیگ نامعتبر است",
+  CONFIG_DUPLICATE: "این کانفیگ از قبل وجود دارد",
+  CONFIG_ADD_FAILED: "افزودن کانفیگ ناموفق بود",
+  CONFIG_NOT_FOUND: "کانفیگ یافت نشد",
+  CONFIG_DELETE_FAILED: "حذف ناموفق بود",
+  CONFIG_TOGGLE_FAILED: "تغییر وضعیت بلاک ناموفق بود",
+  CONFIG_BULK_TOGGLE_FAILED: "تغییر وضعیت گروهی ناموفق بود",
+  CONFIG_RENAME_FAILED: "تغییر نام ناموفق بود",
+  CONFIG_REORDER_FAILED: "تغییر ترتیب ناموفق بود",
   CF_CONNECTION_ADD_FAILED: "افزودن اتصال API ناموفق بود",
   CF_CONNECTION_DELETE_FAILED: "حذف اتصال API ناموفق بود",
   CF_CONNECTION_NOT_FOUND: "این اتصال API یافت نشد",
   CF_CREDENTIALS_REQUIRED: "وارد کردن Account ID و API Token لازم است",
   CF_TOKEN_INVALID: "Account ID یا API Token نادرست است، یا توکن به این اکانت دسترسی ندارد",
   CF_VALIDATION_FAILED: "اتصال به کلودفلر برای اعتبارسنجی ناموفق بود",
+  CF_ACCOUNT_ID_INVALID: "Account ID این اتصال نامعتبر است",
+  CF_STATS_FETCH_FAILED: "دریافت آمار از کلودفلر ناموفق بود",
+  CF_STATS_NO_ACCESS: "این توکن به اطلاعات آماری این اکانت دسترسی ندارد",
   CF_SCRIPTS_LIST_FAILED: "دریافت فهرست ورکرها ناموفق بود",
+  CF_REGIONS_LIST_FAILED: "دریافت فهرست ریجن‌ها ناموفق بود",
   CF_SCRIPT_NAME_REQUIRED: "انتخاب یک ورکر لازم است",
   CF_PLACEMENT_INVALID: "حالت Placement نامعتبر است",
   CF_PLACEMENT_UPDATE_FAILED: "اعمال Placement ناموفق بود",
@@ -257,9 +702,70 @@ var ERROR_MESSAGES = {
   CLEAN_IP_LIST_EMPTY: "لیست آی‌پی تمیز انتخاب‌شده خالی است؛ کانفیگ‌های این بخش بدون جایگزینی عبور داده شدند.",
   UNAUTHORIZED: "نشست شما منقضی شده است. در حال انتقال به صفحه ورود..."
 };
+var ERROR_MESSAGES_EN = {
+  EXPORT_FAILED: "Failed to create backup file",
+  IMPORT_INVALID_BACKUP: "The backup file is invalid or corrupted",
+  LIST_NAME_REQUIRED: "Enter a name for this list",
+  LIST_NEEDS_ONE_IP: "At least one IP is required in the list",
+  LIST_ADD_FAILED: "Failed to add list",
+  LIST_NOT_FOUND: "List not found",
+  LIST_UPDATE_FAILED: "Failed to update list",
+  LIST_DEFAULT_UNDELETABLE: "The panel's default list can't be deleted",
+  LIST_DELETE_FAILED: "Failed to delete list",
+  LIST_MAX_IPS: "A maximum of {limit} IPs per list is allowed.",
+  LIST_MAX_LISTS: "A maximum of {limit} lists is allowed.",
+  SOURCE_NOT_FOUND: "Source not found",
+  SOURCE_NEEDS_URL_OR_MANUAL: "Enter at least one subscription link or one manual config",
+  SOURCE_NO_VALID_CONFIGS: "No valid configs were extracted",
+  SOURCE_ADD_FAILED: "Failed to add source",
+  SOURCE_DELETE_FAILED: "Failed to delete",
+  SOURCE_MAX_URLS: "A maximum of {limit} links is allowed.",
+  SOURCE_MAX_MANUAL_LINES: "A maximum of {limit} manual lines is allowed.",
+  SLUG_TAKEN: "This link is already used by another subscription.",
+  SLUG_UPDATE_FAILED: "Failed to change the link",
+  SLUG_INVALID_FORMAT: "The link must be {min} to {max} Latin letters, digits, dashes or underscores.",
+  PART_NOT_FOUND: "This part was not found",
+  PART_UPDATE_FAILED: "Failed to save",
+  PART_DELETE_FAILED: "Failed to delete this part",
+  CONFIG_BATCH_UPDATE_FAILED: "Failed to save changes",
+  PART_MAX_CONFIGS: "This part has hit the {limit}-template limit.",
+  PART_MAX_BLOCKED: "A maximum of {limit} blocked configs per part is allowed.",
+  PART_MAX_CUSTOM_NAMES: "This part's custom-name limit ({limit}) is full.",
+  PART_OUTPUT_TRUNCATED: "This part's final config count exceeded the {limit} limit; only {kept} of {total} configs were randomly kept in the output.",
+  SYNC_FAILED: "Sync failed",
+  CONFIG_EMPTY: "The config is empty",
+  CONFIG_INVALID_FORMAT: "Invalid config format",
+  CONFIG_DUPLICATE: "This config already exists",
+  CONFIG_ADD_FAILED: "Failed to add config",
+  CONFIG_NOT_FOUND: "Config not found",
+  CONFIG_DELETE_FAILED: "Failed to delete",
+  CONFIG_TOGGLE_FAILED: "Failed to change block state",
+  CONFIG_BULK_TOGGLE_FAILED: "Failed to change state in bulk",
+  CONFIG_RENAME_FAILED: "Failed to rename",
+  CONFIG_REORDER_FAILED: "Failed to reorder",
+  CF_CONNECTION_ADD_FAILED: "Failed to add API connection",
+  CF_CONNECTION_DELETE_FAILED: "Failed to delete API connection",
+  CF_CONNECTION_NOT_FOUND: "This API connection was not found",
+  CF_CREDENTIALS_REQUIRED: "Account ID and API Token are required",
+  CF_TOKEN_INVALID: "Account ID or API Token is incorrect, or the token doesn't have access to this account",
+  CF_VALIDATION_FAILED: "Failed to connect to Cloudflare to verify",
+  CF_ACCOUNT_ID_INVALID: "This connection's Account ID is invalid",
+  CF_STATS_FETCH_FAILED: "Failed to fetch stats from Cloudflare",
+  CF_STATS_NO_ACCESS: "This token doesn't have access to this account's stats",
+  CF_SCRIPTS_LIST_FAILED: "Failed to fetch the worker list",
+  CF_REGIONS_LIST_FAILED: "Failed to fetch the region list",
+  CF_SCRIPT_NAME_REQUIRED: "Select a worker",
+  CF_PLACEMENT_INVALID: "Invalid Placement mode",
+  CF_PLACEMENT_UPDATE_FAILED: "Failed to apply Placement",
+  SOURCE_DISPLAY_SETTINGS_FAILED: "Failed to save display settings",
+  USAGE_PERCENT_NEEDS_TARGET: "Select an API connection and a worker to show usage %",
+  CLEAN_IP_LIST_EMPTY: "The selected clean IP list is empty; this part's configs were passed through without replacement.",
+  UNAUTHORIZED: "Your session has expired. Redirecting to the login page..."
+};
 function translateApiError(result, fallback) {
-  if (result && typeof result.error === "string" && ERROR_MESSAGES[result.error]) {
-    var text = ERROR_MESSAGES[result.error];
+  var dict = currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN;
+  if (result && typeof result.error === "string" && dict[result.error]) {
+    var text = dict[result.error];
     var params = result.errorParams || {};
     Object.keys(params).forEach(function(k) {
       text = text.split("{" + k + "}").join(params[k]);
@@ -268,10 +774,23 @@ function translateApiError(result, fallback) {
   }
   return fallback;
 }
+// One silent retry on a genuine network failure (DNS hiccup, dropped
+// connection, etc. - not an HTTP error status, which still resolves
+// normally) before the caller's .catch() surfaces a "network error" toast.
+// Low-risk, low-complexity: doesn't change any success-path behavior.
+function fetchWithRetry(url, opts) {
+  return fetch(url, opts).catch(function(err) {
+    return new Promise(function(resolve) {
+      setTimeout(resolve, 600);
+    }).then(function() {
+      return fetch(url, opts);
+    });
+  });
+}
 function jsonFetch(url, opts) {
-  return fetch(url, opts).then(function(res) {
+  return fetchWithRetry(url, opts).then(function(res) {
     if (res.status === 401) {
-      showToast(ERROR_MESSAGES.UNAUTHORIZED, "error");
+      showToast((currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).UNAUTHORIZED, "error");
       setTimeout(function() {
         window.location.reload();
       }, 1200);
@@ -293,7 +812,7 @@ document.getElementById("catCloudflare").addEventListener("change", applyCategor
 document.getElementById("catIndependent").addEventListener("change", applyCategoryDefault);
 function renderPortCheckboxesInto(container, allPorts, selectedPorts, cssClass) {
   if (!allPorts || allPorts.length === 0) {
-    container.innerHTML = '<span class="text-[11px] text-gray-500">\u0647\u0646\u0648\u0632 \u0647\u06CC\u0686 \u06A9\u0627\u0646\u0641\u06CC\u06AF\u06CC \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0646\u0634\u062F\u0647.</span>';
+    container.innerHTML = '<span class="text-[11px] text-gray-500">' + t("noConfigYet") + '</span>';
     return;
   }
   var out = [];
@@ -301,31 +820,31 @@ function renderPortCheckboxesInto(container, allPorts, selectedPorts, cssClass) 
     var p = allPorts[i];
     var isChecked = selectedPorts.indexOf(p) !== -1;
     out.push(
-      '<label class="flex items-center gap-2 bg-gray-900 border border-gray-800 p-2 rounded-lg cursor-pointer hover:bg-gray-800 transition"><input type="checkbox" value="' + p + '" class="' + cssClass + ' form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-700 bg-gray-900"' + (isChecked ? " checked" : "") + '><span class="text-xs text-gray-300">' + p + "</span></label>"
+      '<label class="flex items-center gap-2 bg-gray-900 border border-gray-800 p-2 rounded-lg cursor-pointer hover:bg-gray-800 transition"><input type="checkbox" value="' + escapeHtml(p) + '" class="' + cssClass + ' form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-700 bg-gray-900"' + (isChecked ? " checked" : "") + '><span class="text-xs text-gray-300">' + escapeHtml(p) + "</span></label>"
     );
   }
   container.innerHTML = out.join("");
 }
 function renderItemCard(item) {
-  var updatedStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString("fa-IR") : "\u2014";
+  var updatedStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString(currentLang === "fa" ? "fa-IR" : "en-US") : "\u2014";
   var subLink = baseUrl + "/sub/" + (item.slug || item.id);
-  var safeName = escapeHtml(item.name || "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645");
-  var categoryLabel = item.category === "independent" ? "\u0633\u0631\u0648\u0631 \u0645\u0633\u062A\u0642\u0644" : item.category === "mixed" ? "\u062A\u0631\u06A9\u06CC\u0628\u06CC" : "\u06A9\u0644\u0648\u062F\u0641\u0644\u0631";
+  var safeName = escapeHtml(item.name || t("noName"));
+  var categoryLabel = item.category === "independent" ? t("catIndependentLabel") : item.category === "mixed" ? t("catMixedLabel") : t("catCloudflareLabel");
   var categoryClass = item.category === "independent" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : item.category === "mixed" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-sky-500/10 text-sky-400 border-sky-500/20";
-  var partsLabel = (item.partsCount || 0) + " \u0628\u062E\u0634";
+  var partsLabel = (item.partsCount || 0) + " " + t("partsSuffix");
   var warningsHtml = "";
-  if (item.truncated) warningsHtml += '<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[11px] p-2 rounded-lg mt-2">\u26A0\uFE0F \u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9\u06CC \u0627\u0632 \u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0646\u0628\u0639 \u0628\u0647 \u0633\u0642\u0641 \u062A\u0639\u062F\u0627\u062F \u0642\u0627\u0644\u0628\u200C\u0647\u0627 \u0631\u0633\u06CC\u062F\u0647.</div>';
+  if (item.truncated) warningsHtml += '<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[11px] p-2 rounded-lg mt-2">' + t("truncatedWarning") + "</div>";
   (item.partWarnings || []).forEach(function(w) {
     var msg = translateApiError({ error: w.message, errorParams: w.params }, w.message);
     warningsHtml += '<div class="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] p-2 rounded-lg mt-2">\u26A0\uFE0F ' + escapeHtml(msg) + "</div>";
   });
-  return '<div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition"><div class="flex justify-between items-start mb-2"><div><h3 class="font-bold text-sm text-gray-200">' + safeName + '</h3><div class="flex flex-wrap gap-1 mt-1"><span class="text-[10px] px-2 py-0.5 rounded border ' + categoryClass + '">' + categoryLabel + '</span><span class="text-[10px] px-2 py-0.5 rounded border bg-gray-800 text-gray-400 border-gray-700">' + partsLabel + '</span></div><span class="text-[11px] text-gray-500 block mt-1">\u0622\u067E\u062F\u06CC\u062A: ' + updatedStr + '</span></div><span class="bg-indigo-500/10 text-indigo-400 text-[10px] px-2 py-1 rounded border border-indigo-500/20">' + item.baseCount + " \u0642\u0627\u0644\u0628 &larr; " + item.finalCount + " \u06A9\u0627\u0646\u0641\u06CC\u06AF</span></div>" + warningsHtml + '<div class="flex flex-wrap gap-2 mt-4"><button class="copy-link-btn flex-1 bg-white text-gray-900 hover:bg-gray-200 text-xs font-bold py-2 rounded-lg transition shadow-md" data-link="' + escapeHtml(subLink) + '">\u06A9\u067E\u06CC \u0644\u06CC\u0646\u06A9</button><button class="sync-one-btn bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-2 rounded-lg border border-emerald-500/20 transition text-xs font-bold" data-id="' + item.id + '">\u0633\u06CC\u0646\u06A9</button><button class="edit-configs-btn bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white px-3 py-2 rounded-lg border border-purple-500/20 transition text-xs font-bold" data-id="' + item.id + '" data-name="' + safeName + '">\u0648\u06CC\u0631\u0627\u06CC\u0634</button><button class="delete-source-btn bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-3 py-2 rounded-lg border border-red-500/20 transition" data-id="' + item.id + '">\u062D\u0630\u0641</button></div></div>';
+  return '<div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition"><div class="flex justify-between items-start mb-2"><div><h3 class="font-bold text-sm text-gray-200">' + safeName + '</h3><div class="flex flex-wrap gap-1 mt-1"><span class="text-[10px] px-2 py-0.5 rounded border ' + categoryClass + '">' + categoryLabel + '</span><span class="text-[10px] px-2 py-0.5 rounded border bg-gray-800 text-gray-400 border-gray-700">' + partsLabel + '</span></div><span class="text-[11px] text-gray-500 block mt-1">' + t("updatedAtLabel") + " " + updatedStr + '</span></div><span class="bg-indigo-500/10 text-indigo-400 text-[10px] px-2 py-1 rounded border border-indigo-500/20">' + item.baseCount + " &larr; " + item.finalCount + "</span></div>" + warningsHtml + '<div class="flex flex-wrap gap-2 mt-4"><button class="copy-link-btn flex-1 bg-white text-gray-900 hover:bg-gray-200 text-xs font-bold py-2 rounded-lg transition shadow-md" data-link="' + escapeHtml(subLink) + '">' + t("copyLinkBtn") + '</button><button class="sync-one-btn bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-2 rounded-lg border border-emerald-500/20 transition text-xs font-bold" data-id="' + item.id + '">' + t("syncBtn") + '</button><button class="edit-configs-btn bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white px-3 py-2 rounded-lg border border-purple-500/20 transition text-xs font-bold" data-id="' + item.id + '" data-name="' + safeName + '">' + t("editBtn") + '</button><button class="delete-source-btn bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-3 py-2 rounded-lg border border-red-500/20 transition" data-id="' + item.id + '">' + t("deleteBtn") + "</button></div></div>";
 }
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(function() {
-    showToast("\u0644\u06CC\u0646\u06A9 \u06A9\u067E\u06CC \u0634\u062F!");
+    showToast(t("linkCopied"));
   }).catch(function() {
-    showToast("\u06A9\u067E\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0645\u0645\u06A9\u0646 \u0646\u0634\u062F - \u0644\u06CC\u0646\u06A9: " + link, "error");
+    showToast(t("copyFailed") + " " + link, "error");
   });
 }
 function renderCleanIpListsContainer(lists) {
@@ -335,8 +854,8 @@ function renderCleanIpListsContainer(lists) {
     return;
   }
   wrap.innerHTML = lists.map(function(l) {
-    var delBtn = l.builtin ? '<span class="text-[10px] text-gray-600">\u067E\u06CC\u0634\u200C\u0641\u0631\u0636</span>' : '<button class="del-list-btn text-red-400 hover:text-red-300 text-xs" data-id="' + l.id + '">\u062D\u0630\u0641</button>';
-    return '<div class="bg-gray-900/60 border border-gray-800 rounded-lg p-3"><div class="flex items-center justify-between mb-2"><input type="text" class="list-name-input bg-transparent text-sm font-bold text-gray-200 border-b border-transparent focus:border-sky-500 focus:outline-none w-2/3" data-id="' + l.id + '" value="' + escapeHtml(l.name) + '">' + delBtn + '</div><textarea class="list-ips-input w-full bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[11px]" dir="ltr" rows="3" data-id="' + l.id + '">' + escapeHtml((l.ips || []).join("\\n")) + '</textarea><button class="save-list-btn w-full mt-2 bg-gray-800 hover:bg-gray-700 py-1.5 rounded-lg text-[11px] font-bold transition border border-gray-700" data-id="' + l.id + '">\u0630\u062E\u06CC\u0631\u0647 \u0627\u06CC\u0646 \u0644\u06CC\u0633\u062A (' + (l.ips || []).length + " \u0622\u06CC\u200C\u067E\u06CC)</button></div>";
+    var delBtn = l.builtin ? '<span class="text-[10px] text-gray-600">' + t("builtinLabel") + '</span>' : '<button class="del-list-btn text-red-400 hover:text-red-300 text-xs" data-id="' + l.id + '">' + t("deleteBtn") + '</button>';
+    return '<div class="bg-gray-900/60 border border-gray-800 rounded-lg p-3"><div class="flex items-center justify-between mb-2"><input type="text" class="list-name-input bg-transparent text-sm font-bold text-gray-200 border-b border-transparent focus:border-sky-500 focus:outline-none w-2/3" data-id="' + l.id + '" value="' + escapeHtml(l.name) + '">' + delBtn + '</div><textarea class="list-ips-input w-full bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[11px]" dir="ltr" rows="3" data-id="' + l.id + '">' + escapeHtml((l.ips || []).join("\\n")) + '</textarea><button class="save-list-btn w-full mt-2 bg-gray-800 hover:bg-gray-700 py-1.5 rounded-lg text-[11px] font-bold transition border border-gray-700" data-id="' + l.id + '">' + t("saveBtn") + " (" + (l.ips || []).length + " " + (currentLang === "fa" ? "آی‌پی" : "IPs") + ")</button></div>";
   }).join("");
 }
 function addCleanIpList() {
@@ -345,18 +864,18 @@ function addCleanIpList() {
     return i.trim();
   }).filter(Boolean);
   if (!name || ips.length === 0) {
-    showToast("\u0646\u0627\u0645 \u0648 \u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0622\u06CC\u200C\u067E\u06CC \u0644\u0627\u0632\u0645 \u0627\u0633\u062A", "error");
+    showToast(t("listNameIpRequired"), "error");
     return;
   }
   jsonFetch("/api/clean-ip-lists", { method: "POST", body: JSON.stringify({ name, ips }) }).then(function(r) {
     if (r.ok && r.result.success) {
       document.getElementById("newListName").value = "";
       document.getElementById("newListIps").value = "";
-      showToast("\u0644\u06CC\u0633\u062A \u0633\u0627\u062E\u062A\u0647 \u0634\u062F");
+      showToast(t("listCreated"));
       loadData();
-    } else showToast(translateApiError(r.result, "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+    } else showToast(translateApiError(r.result, t("networkError")), "error");
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function saveCleanIpList(listId) {
@@ -366,22 +885,22 @@ function saveCleanIpList(listId) {
   }).filter(Boolean);
   jsonFetch("/api/clean-ip-lists/" + listId, { method: "PUT", body: JSON.stringify({ name, ips }) }).then(function(r) {
     if (r.ok && r.result.success) {
-      showToast("\u0644\u06CC\u0633\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F");
+      showToast(t("listSaved"));
       loadData();
-    } else showToast(translateApiError(r.result, "\u0630\u062E\u06CC\u0631\u0647 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+    } else showToast(translateApiError(r.result, t("networkError")), "error");
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function deleteCleanIpList(listId) {
-  if (!confirm("\u0627\u06CC\u0646 \u0644\u06CC\u0633\u062A \u062D\u0630\u0641 \u0634\u0648\u062F\u061F")) return;
+  if (!confirm(t("confirmDeleteList"))) return;
   jsonFetch("/api/clean-ip-lists/" + listId, { method: "DELETE" }).then(function(r) {
     if (r.ok && r.result.success) {
-      showToast("\u062D\u0630\u0641 \u0634\u062F");
+      showToast(t("listDeleted"));
       loadData();
-    } else showToast(translateApiError(r.result, "\u062D\u0630\u0641 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+    } else showToast(translateApiError(r.result, t("networkError")), "error");
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 document.getElementById("cleanIpListsContainer").addEventListener("click", function(e) {
@@ -401,7 +920,7 @@ function renderCfConnectionsList(connections) {
   }
   wrap.innerHTML = connections.map(function(c) {
     var accountLabel = c.accountName ? escapeHtml(c.accountName) : escapeHtml(c.accountId);
-    return '<div class="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-xs"><div class="flex items-center justify-between"><div class="text-gray-300"><b>' + escapeHtml(c.label) + '</b> <span class="text-gray-500" dir="ltr">(' + accountLabel + ", " + escapeHtml(c.tokenPreview) + ')</span></div><div class="flex items-center gap-2 shrink-0"><button class="cf-placement-btn text-indigo-400 hover:text-indigo-300 px-1" data-id="' + c.id + '">Placement</button><button class="del-cf-btn text-red-400 hover:text-red-300 px-1" data-id="' + c.id + '">حذف</button></div></div><div class="cf-placement-box hidden mt-2 pt-2 border-t border-gray-800" id="cf-placement-' + c.id + '"></div></div>';
+    return '<div class="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-xs"><div class="flex items-center justify-between gap-2"><div class="text-gray-300 min-w-0 truncate"><b>' + escapeHtml(c.label) + '</b> <span class="text-gray-500" dir="ltr">(' + accountLabel + ", " + escapeHtml(c.tokenPreview) + ')</span></div><div class="flex items-center gap-2 shrink-0"><button class="cf-placement-btn text-indigo-400 hover:text-indigo-300 px-1" data-id="' + c.id + '">Placement</button><button class="del-cf-btn text-red-400 hover:text-red-300 px-1" data-id="' + c.id + '">' + t("deleteBtn") + '</button></div></div><div class="cf-placement-box hidden mt-2 pt-2 border-t border-gray-800" id="cf-placement-' + c.id + '"></div></div>';
   }).join("");
 }
 function addCfConnection() {
@@ -409,29 +928,29 @@ function addCfConnection() {
   var accountId = document.getElementById("newCf-account").value.trim();
   var apiToken = document.getElementById("newCf-token").value.trim();
   if (!accountId || !apiToken) {
-    showToast("وارد کردن Account ID و API Token لازم است", "error");
+    showToast(t("cfCredsRequired"), "error");
     return;
   }
-  showToast("در حال بررسی اعتبار نزد کلودفلر...");
+  showToast(t("cfChecking"));
   jsonFetch("/api/cf-connections", { method: "POST", body: JSON.stringify({ label, accountId, apiToken }) }).then(function(r) {
     if (r.ok && r.result.success) {
       document.getElementById("newCf-label").value = "";
       document.getElementById("newCf-account").value = "";
       document.getElementById("newCf-token").value = "";
-      showToast("اتصال API با موفقیت تأیید و اضافه شد!");
+      showToast(t("cfAdded"));
       loadData();
-    } else showToast(translateApiError(r.result, "اعتبارسنجی ناموفق بود"), "error");
+    } else showToast(translateApiError(r.result, t("genericError")), "error");
   }).catch(function() {
-    showToast("خطای شبکه هنگام بررسی اعتبار", "error");
+    showToast(t("genericError"), "error");
   });
 }
 function deleteCfConnection(id) {
-  if (!confirm("این اتصال API حذف شود؟")) return;
+  if (!confirm(t("confirmDeleteCf"))) return;
   fetch("/api/cf-connections/" + id, { method: "DELETE" }).then(function() {
-    showToast("حذف شد");
+    showToast(t("cfDeleted"));
     loadData();
   }).catch(function() {
-    showToast("خطا در حذف", "error");
+    showToast(t("cfDeleteFailed"), "error");
   });
 }
 var cfScriptsCache = {};
@@ -443,28 +962,42 @@ function toggleCfPlacementBox(connId) {
     return;
   }
   box.classList.remove("hidden");
-  box.innerHTML = '<span class="text-[11px] text-gray-500">در حال دریافت فهرست ورکرها...</span>';
-  fetch("/api/cf-connections/" + connId + "/scripts").then(function(res) {
-    return res.json();
-  }).then(function(data) {
+  box.innerHTML = '<span class="text-[11px] text-gray-500">' + t("fetchingScripts") + '</span>';
+  Promise.all([
+    fetchWithRetry("/api/cf-connections/" + connId + "/scripts").then(function(res) {
+      return res.json();
+    }),
+    fetchWithRetry("/api/cf-connections/" + connId + "/regions").then(function(res) {
+      return res.json();
+    }).catch(function() {
+      return { success: false };
+    })
+  ]).then(function(results) {
+    var data = results[0];
+    var regionsData = results[1];
     if (!data.success) {
-      box.innerHTML = '<span class="text-[11px] text-orange-400">دریافت فهرست ورکرها ناموفق بود - توکن باید مجوز Workers Scripts داشته باشد.</span>';
+      box.innerHTML = '<span class="text-[11px] text-orange-400">' + t("scriptsFetchFailed") + '</span>';
       return;
     }
     cfScriptsCache[connId] = data.scripts || [];
     if (data.scripts.length === 0) {
-      box.innerHTML = '<span class="text-[11px] text-gray-500">هیچ ورکری در این اکانت یافت نشد.</span>';
+      box.innerHTML = '<span class="text-[11px] text-gray-500">' + t("noScriptsFound") + '</span>';
       return;
     }
-    var regionOptions = PLACEMENT_REGION_PRESETS_CLIENT.map(function(r) {
-      return '<option value="' + r.value + '">' + escapeHtml(r.label) + '</option>';
+    // Prefer the live, complete region list straight from Cloudflare's API;
+    // fall back to the small hardcoded preset list if the fetch failed or
+    // the token lacks permission for it, so Placement stays usable either
+    // way.
+    var regionsList = regionsData && regionsData.success && regionsData.regions && regionsData.regions.length > 0 ? regionsData.regions : placementRegionPresets();
+    var regionOptions = regionsList.map(function(r) {
+      return '<option value="' + escapeHtml(r.value) + '">' + escapeHtml(r.label) + '</option>';
     }).join("");
     var scriptOptions = data.scripts.map(function(s) {
       return '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + "</option>";
     }).join("");
-    box.innerHTML = '<div class="space-y-2"><select class="cf-placement-script w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" dir="ltr">' + scriptOptions + '</select><div class="flex flex-wrap gap-1.5"><button class="cf-placement-apply text-[11px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 px-2 py-1 rounded" data-mode="smart">Smart Placement</button><button class="cf-placement-apply text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-1 rounded" data-mode="off">پیش‌فرض (تلاش برای خاموش کردن)</button></div><p class="text-[10px] text-gray-600">توجه: برگرداندن Placement به پیش‌فرض یک باگ شناخته‌شده در خودِ API کلودفلر دارد (حتی از داشبورد رسمی هم گاهی با همین خطا مواجه می‌شود) و ممکن است با خطا مواجه شود؛ در آن صورت باید از داشبورد کلودفلر (Workers &amp; Pages ← ورکر موردنظر ← Settings ← Runtime ← Placement) به‌صورت دستی روی Default تنظیمش کنید.</p><div class="flex items-center gap-1.5" dir="ltr"><select class="cf-placement-region flex-1 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]"><option value="">-- Region سفارشی/آماده --</option>' + regionOptions + '</select><button class="cf-placement-apply text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-1 rounded shrink-0" data-mode="region">اعمال</button></div><input class="cf-placement-region-custom w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] font-mono" dir="ltr" placeholder="یا provider:region دلخواه، مثل azure:israelcentral"><p class="text-[10px] text-gray-600">اگر Region سفارشی پر باشد به‌جای گزینه‌ی بالا استفاده می‌شود.</p><div class="cf-placement-result text-[11px]"></div></div>';
+    box.innerHTML = '<div class="space-y-2"><select class="cf-placement-script w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" dir="ltr">' + scriptOptions + '</select><div class="flex flex-wrap gap-1.5"><button class="cf-placement-apply text-[11px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 px-2 py-1 rounded" data-mode="smart">' + t("smartPlacementBtn") + '</button><button class="cf-placement-apply text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-1 rounded" data-mode="off">' + t("defaultPlacementBtn") + '</button></div><div class="flex items-center gap-1.5" dir="ltr"><select class="cf-placement-region flex-1 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]"><option value="">' + t("placementCustomRegionPlaceholder") + '</option>' + regionOptions + '</select><button class="cf-placement-apply text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-1 rounded shrink-0" data-mode="region">' + t("placementApplyBtn") + '</button></div><input class="cf-placement-region-custom w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] font-mono" dir="ltr" placeholder="' + escapeHtml(t("placementCustomRegionInputPlaceholder")) + '"><p class="text-[10px] text-gray-600">' + t("placementCustomRegionHint") + '</p><div class="cf-placement-result text-[11px]"></div></div>';
   }).catch(function() {
-    box.innerHTML = '<span class="text-[11px] text-orange-400">خطای شبکه هنگام دریافت فهرست ورکرها.</span>';
+    box.innerHTML = '<span class="text-[11px] text-orange-400">' + t("scriptsFetchFailed") + '</span>';
   });
 }
 document.getElementById("cfConnectionsList").addEventListener("click", function(e) {
@@ -484,7 +1017,7 @@ document.getElementById("cfConnectionsList").addEventListener("click", function(
       var presetRegion = box.querySelector(".cf-placement-region").value;
       var region = customRegion || presetRegion;
       if (!region) {
-        showToast("یک Region انتخاب یا وارد کنید", "error");
+        showToast(t("regionRequired"), "error");
         return;
       }
       payload.region = region;
@@ -492,25 +1025,25 @@ document.getElementById("cfConnectionsList").addEventListener("click", function(
       payload.mode = mode;
     }
     var resultEl = box.querySelector(".cf-placement-result");
-    resultEl.textContent = "در حال اعمال...";
+    resultEl.textContent = t("applying");
     resultEl.className = "cf-placement-result text-[11px] text-gray-400";
     jsonFetch("/api/cf-connections/" + connId + "/placement", { method: "PUT", body: JSON.stringify(payload) }).then(function(r) {
       if (r.ok && r.result.success) {
-        resultEl.textContent = "Placement اعمال شد.";
+        resultEl.textContent = t("placementApplied");
         resultEl.className = "cf-placement-result text-[11px] text-emerald-400";
       } else {
-        var msg = (r.result && r.result.message) || translateApiError(r.result, "اعمال Placement ناموفق بود");
+        var msg = (r.result && r.result.message) || translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).CF_PLACEMENT_UPDATE_FAILED);
         resultEl.textContent = msg;
         resultEl.className = "cf-placement-result text-[11px] text-orange-400";
       }
     }).catch(function() {
-      resultEl.textContent = "خطای شبکه";
+      resultEl.textContent = t("networkError");
       resultEl.className = "cf-placement-result text-[11px] text-orange-400";
     });
   }
 });
 function statsCardSkeleton(conn) {
-  return '<div class="bg-gray-900/50 p-5 rounded-xl border border-gray-800" id="cf-card-' + conn.id + '"><div class="flex items-center justify-between"><div><span class="text-gray-400 text-sm block mb-1">' + escapeHtml(conn.label) + '</span><div class="flex items-baseline gap-2"><strong class="cf-req-value text-3xl text-white font-black">---</strong><span class="text-gray-500 text-sm">/ 100,000 \u0631\u0627\u06CC\u06AF\u0627\u0646</span></div></div><div class="cf-chart-el w-16 h-16 rounded-full border-4 border-gray-800 flex items-center justify-center relative"><span class="text-xs text-gray-500">%</span></div></div><div class="cf-err-box hidden mt-3 text-orange-400 text-[11px]"></div></div>';
+  return '<div class="bg-gray-900/50 p-5 rounded-xl border border-gray-800" id="cf-card-' + conn.id + '"><div class="flex items-center justify-between"><div><span class="text-gray-400 text-sm block mb-1">' + escapeHtml(conn.label) + '</span><div class="flex items-baseline gap-2"><strong class="cf-req-value text-3xl text-white font-black">---</strong><span class="text-gray-500 text-sm">/ 100,000 ' + (currentLang === "fa" ? "راه‌گان" : "requests") + '</span></div></div><div class="cf-chart-el w-16 h-16 rounded-full border-4 border-gray-800 flex items-center justify-center relative"><span class="text-xs text-gray-500">%</span></div></div><div class="cf-err-box hidden mt-3 text-orange-400 text-[11px]"></div></div>';
 }
 function fetchAllStats() {
   var connections = window.cfConnections || [];
@@ -524,7 +1057,7 @@ function fetchAllStats() {
   emptyEl.classList.add("hidden");
   cardsEl.innerHTML = connections.map(statsCardSkeleton).join("");
   connections.forEach(function(conn) {
-    fetch("/api/cf-connections/" + conn.id + "/stats").then(function(res) {
+    fetchWithRetry("/api/cf-connections/" + conn.id + "/stats").then(function(res) {
       return res.json();
     }).then(function(data) {
       var card = document.getElementById("cf-card-" + conn.id);
@@ -532,9 +1065,9 @@ function fetchAllStats() {
       var reqEl = card.querySelector(".cf-req-value");
       var errBox = card.querySelector(".cf-err-box");
       var chartEl = card.querySelector(".cf-chart-el");
-      if (data.error) {
+      if (!data.success) {
         reqEl.textContent = "---";
-        errBox.textContent = data.error;
+        errBox.textContent = data.message || translateApiError(data, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).CF_STATS_FETCH_FAILED);
         errBox.classList.remove("hidden");
         return;
       }
@@ -549,7 +1082,7 @@ function fetchAllStats() {
   });
 }
 function loadData() {
-  return fetch("/api/state").then(function(res) {
+  return fetchWithRetry("/api/state").then(function(res) {
     return res.json();
   }).then(function(data) {
     document.getElementById("password-warning").classList.toggle("hidden", !data.usingDefaultPassword);
@@ -560,19 +1093,19 @@ function loadData() {
     window.cfConnections = data.cfConnections || [];
     var listEl = document.getElementById("subsList");
     var countBadge = document.getElementById("sourcesCountBadge");
-    countBadge.textContent = (data.items || []).length + " \u0645\u0648\u0631\u062F";
+    countBadge.textContent = (data.items || []).length + " " + t("itemsSuffix");
     if (!data.items || data.items.length === 0) {
-      listEl.innerHTML = '<div class="text-center text-gray-500 py-8 text-sm border border-dashed border-gray-700 rounded-xl flex flex-col items-center gap-2"><svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg><span>\u0647\u0646\u0648\u0632 \u0645\u0646\u0628\u0639\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 - \u0627\u0632 \u0641\u0631\u0645 \u0628\u0627\u0644\u0627 \u0634\u0631\u0648\u0639 \u06A9\u0646\u06CC\u062F.</span></div>';
+      listEl.innerHTML = '<div class="text-center text-gray-500 py-8 text-sm border border-dashed border-gray-700 rounded-xl flex flex-col items-center gap-2"><svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg><span>' + t("noSourceYet") + '</span></div>';
     } else {
       listEl.innerHTML = data.items.map(renderItemCard).join("");
     }
     fetchAllStats();
   }).catch(function() {
-    showToast("\u062E\u0637\u0627 \u062F\u0631 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A", "error");
+    showToast(t("stateLoadFailed"), "error");
   });
 }
 function addSource() {
-  var name = document.getElementById("sourceName").value || "\u0645\u0646\u0628\u0639 \u062C\u062F\u06CC\u062F";
+  var name = document.getElementById("sourceName").value || t("newSourceFallbackName");
   var urls = document.getElementById("sourceUrls").value.split("\\n").map(function(i) {
     return i.trim();
   }).filter(Boolean);
@@ -582,49 +1115,49 @@ function addSource() {
   var nameModeUrl = document.getElementById("nameModeUrlOriginal").checked ? "original" : "auto";
   var nameModeManual = document.getElementById("nameModeManualOriginal").checked ? "original" : "auto";
   if (urls.length === 0 && !manual.trim()) {
-    showToast("لطفاً حداقل یک لینک سابسکریپشن یا یک کانفیگ دستی وارد کنید", "error");
+    showToast(t("noUrlOrManual"), "error");
     return;
   }
-  showToast("در حال استخراج قالب‌ها و ساخت کانفیگ‌های جدید...");
+  showToast(t("creatingConfigs"));
   jsonFetch("/api/sources", { method: "POST", body: JSON.stringify({ name, urls, manual, category, useCleanIp, nameModeUrl, nameModeManual }) }).then(function(r) {
     if (r.ok && r.result.success) {
       document.getElementById("sourceUrls").value = "";
       document.getElementById("sourceManual").value = "";
-      showToast("منبع با موفقیت اضافه شد!");
+      showToast(t("sourceAdded"));
       loadData();
-    } else showToast(translateApiError(r.result, "خطا در افزودن منبع"), "error");
+    } else showToast(translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).SOURCE_ADD_FAILED), "error");
   }).catch(function() {
-    showToast("خطای شبکه", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function deleteSource(id) {
-  if (!confirm("\u0622\u06CC\u0627 \u0627\u06CC\u0646 \u0645\u0646\u0628\u0639 \u062D\u0630\u0641 \u0634\u0648\u062F\u061F")) return;
+  if (!confirm(t("confirmDeleteSource"))) return;
   fetch("/api/sources/" + id, { method: "DELETE" }).then(function() {
-    showToast("\u062D\u0630\u0641 \u0634\u062F");
+    showToast(t("deleteBtn"));
     if (editorSourceId === id) closeConfigEditor();
     loadData();
   }).catch(function() {
-    showToast("\u062E\u0637\u0627 \u062F\u0631 \u062D\u0630\u0641", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function syncOneSource(id) {
-  showToast("\u062F\u0631 \u062D\u0627\u0644 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u06CC\u0646 \u0645\u0646\u0628\u0639...");
+  showToast(t("syncingOne"));
   fetch("/api/sources/" + id + "/sync", { method: "POST" }).then(function() {
-    showToast("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0634\u062F");
+    showToast(t("syncedOne"));
     loadData();
     if (editorSourceId === id) refreshConfigEditor();
   }).catch(function() {
-    showToast("\u062E\u0637\u0627 \u062F\u0631 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function syncAll() {
-  showToast("\u062F\u0631 \u062D\u0627\u0644 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0647\u0645\u0647\u200C\u06CC \u0645\u0646\u0627\u0628\u0639...");
+  showToast(t("syncingAll"));
   fetch("/api/sync", { method: "POST" }).then(function() {
-    showToast("\u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0634\u062F!");
+    showToast(t("syncedAll"));
     loadData();
     if (editorSourceId) refreshConfigEditor();
   }).catch(function() {
-    showToast("\u062E\u0637\u0627 \u062F\u0631 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function getSelectedBackupSections() {
@@ -637,11 +1170,11 @@ function getSelectedBackupSections() {
 function exportBackup() {
   var sections = getSelectedBackupSections();
   if (sections.length === 0) {
-    showToast("\u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0628\u062E\u0634 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F", "error");
+    showToast(t("selectOneSection"), "error");
     return;
   }
-  showToast("\u062F\u0631 \u062D\u0627\u0644 \u0633\u0627\u062E\u062A \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646...");
-  fetch("/api/backup?sections=" + encodeURIComponent(sections.join(","))).then(function(res) {
+  showToast(t("exportingBackup"));
+  fetchWithRetry("/api/backup?sections=" + encodeURIComponent(sections.join(","))).then(function(res) {
     if (!res.ok) throw new Error("export failed");
     return res.blob();
   }).then(function(blob) {
@@ -653,55 +1186,55 @@ function exportBackup() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast("\u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u062F\u0627\u0646\u0644\u0648\u062F \u0634\u062F");
+    showToast(t("backupDownloaded"));
   }).catch(function() {
-    showToast("\u0633\u0627\u062E\u062A \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F", "error");
+    showToast((currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).EXPORT_FAILED, "error");
   });
 }
 function importBackup() {
   var input = document.getElementById("importFileInput");
   var file = input.files && input.files[0];
   if (!file) {
-    showToast("\u06CC\u06A9 \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F", "error");
+    showToast(t("selectBackupFile"), "error");
     return;
   }
   var sections = getSelectedBackupSections();
   if (sections.length === 0) {
-    showToast("\u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0628\u062E\u0634 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F", "error");
+    showToast(t("selectOneSection"), "error");
     return;
   }
   var mode = document.getElementById("importModeReplace").checked ? "replace" : "merge";
-  if (mode === "replace" && !confirm("\u0627\u06CC\u0646 \u06A9\u0627\u0631 \u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u062A\u06CC\u06A9\u200C\u062E\u0648\u0631\u062F\u0647 \u0631\u0627 \u0628\u0627 \u0645\u062D\u062A\u0648\u0627\u06CC \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u06CC\u200C\u06A9\u0646\u062F \u0648 \u0642\u0627\u0628\u0644 \u0628\u0627\u0632\u06AF\u0634\u062A \u0646\u06CC\u0633\u062A. \u0627\u062F\u0627\u0645\u0647 \u0645\u06CC\u200C\u062F\u0647\u06CC\u062F\u061F")) return;
+  if (mode === "replace" && !confirm(t("confirmReplaceImport"))) return;
   var reader = new FileReader();
   reader.onload = function() {
     var parsed;
     try {
       parsed = JSON.parse(reader.result);
     } catch (e) {
-      showToast("\u0641\u0627\u06CC\u0644 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06CC\u06A9 JSON \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", "error");
+      showToast(t("invalidJsonFile"), "error");
       return;
     }
     parsed.__importMode = mode;
     parsed.__importSections = sections;
-    showToast("\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0627\u0632 \u0641\u0627\u06CC\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646...");
+    showToast(t("restoringBackup"));
     jsonFetch("/api/backup", { method: "POST", body: JSON.stringify(parsed) }).then(function(r) {
       if (r.ok && r.result.success) {
         var parts = [];
-        if (sections.indexOf("sources") !== -1) parts.push(r.result.sourcesImported + " \u0633\u0627\u0628\u0633\u06A9\u0631\u06CC\u067E\u0634\u0646");
-        if (sections.indexOf("cleanIpLists") !== -1) parts.push(r.result.listsImported + " \u0644\u06CC\u0633\u062A \u0622\u06CC\u200C\u067E\u06CC");
-        if (sections.indexOf("cfConnections") !== -1) parts.push(r.result.cfConnectionsImported + " \u0627\u062A\u0635\u0627\u0644 API");
-        showToast(parts.join("\u060C ") + " \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0634\u062F");
+        if (sections.indexOf("sources") !== -1) parts.push(r.result.sourcesImported + " " + t("importedSourcesLabel"));
+        if (sections.indexOf("cleanIpLists") !== -1) parts.push(r.result.listsImported + " " + t("importedListsLabel"));
+        if (sections.indexOf("cfConnections") !== -1) parts.push(r.result.cfConnectionsImported + " " + t("importedCfLabel"));
+        showToast(parts.join((currentLang === "fa" ? "\u060C " : ", ")) + " " + t("importedSuffix"));
         input.value = "";
         loadData();
       } else {
-        showToast(translateApiError(r.result, "\u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+        showToast(translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).IMPORT_INVALID_BACKUP), "error");
       }
     }).catch(function() {
-      showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+      showToast(t("networkError"), "error");
     });
   };
   reader.onerror = function() {
-    showToast("\u062E\u0648\u0627\u0646\u062F\u0646 \u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F", "error");
+    showToast(t("fileReadFailed"), "error");
   };
   reader.readAsText(file);
 }
@@ -730,7 +1263,7 @@ function openConfigEditor(sourceId, sourceName) {
   pendingDeletes = {};
   pendingIncluded = {};
   pendingOrder = {};
-  document.getElementById("editorTitle").textContent = "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0627\u0628\u0633\u06A9\u0631\u06CC\u067E\u0634\u0646 (" + sourceName + ")";
+  document.getElementById("editorTitle").textContent = t("editorDefaultTitle") + " (" + sourceName + ")";
   document.getElementById("configEditorPanel").classList.remove("hidden");
   var src = (sourceItemsCache || []).find(function(s) {
     return s.id === sourceId;
@@ -759,19 +1292,19 @@ function saveSourceSlug() {
     body: JSON.stringify({ slug })
   }).then(function(r) {
     if (r.ok && r.result.success) {
-      if (!r.result.unchanged) showToast("\u0622\u062F\u0631\u0633 \u0633\u0627\u0628\u0633\u06A9\u0631\u06CC\u067E\u0634\u0646 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0634\u062F");
+      if (!r.result.unchanged) showToast(t("slugUpdated"));
       input.value = r.result.slug;
       loadData();
     } else {
-      showToast(translateApiError(r.result, "\u062A\u063A\u06CC\u06CC\u0631 \u0644\u06CC\u0646\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+      showToast(translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).SLUG_UPDATE_FAILED), "error");
     }
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function refreshConfigEditor() {
   if (!editorSourceId) return Promise.resolve();
-  return fetch("/api/sources/" + editorSourceId + "/configs").then(function(res) {
+  return fetchWithRetry("/api/sources/" + editorSourceId + "/configs").then(function(res) {
     return res.json();
   }).then(function(data) {
     var container = document.getElementById("editorPartsContainer");
@@ -786,9 +1319,8 @@ function refreshConfigEditor() {
     parts.forEach(function(p) {
       editorPartsCache[p.id] = p;
     });
-    renderSourceDisplaySettings(data.source || {});
     if (parts.length === 0) {
-      container.innerHTML = '<div class="text-center text-gray-500 py-4 text-sm border border-dashed border-gray-700 rounded-xl">این منبع هنوز هیچ بخشی ندارد.</div>';
+      container.innerHTML = '<div class="text-center text-gray-500 py-4 text-sm border border-dashed border-gray-700 rounded-xl">' + t("noPartsYet") + '</div>';
     } else {
       container.innerHTML = parts.map(function(part, idx) {
         return renderPartCard(part, lists, idx, parts);
@@ -800,10 +1332,11 @@ function refreshConfigEditor() {
       Array.prototype.slice.call(container.querySelectorAll(".select-all-cb[data-indeterminate]")).forEach(function(cb) {
         cb.indeterminate = true;
       });
+      wirePartDisplaySettingsEvents(container, parts);
     }
     renderManualAddCard(lists, parts);
   }).catch(function() {
-    showToast("خطا در دریافت کانفیگ‌ها", "error");
+    showToast(t("configsFetchFailed"), "error");
   });
 }
 function cfConnectionOptionsHtml(selectedId) {
@@ -812,86 +1345,78 @@ function cfConnectionOptionsHtml(selectedId) {
     return '<option value="' + c.id + '"' + sel + '>' + escapeHtml(c.accountName || c.label) + " (" + escapeHtml(c.label) + ")</option>";
   }).join("");
 }
-function renderSourceDisplaySettings(source) {
-  var wrap = document.getElementById("editorDisplaySettingsContainer");
-  var emojiChecked = source.emojiEnabled !== false ? " checked" : "";
-  var pctChecked = source.usagePercentEnabled ? " checked" : "";
-  var connOptions = '<option value="">-- انتخاب اتصال API --</option>' + cfConnectionOptionsHtml(source.usagePercentCfConnectionId);
-  var noConnHint = editorCfConnectionsCache.length === 0 ? '<p class="text-[11px] text-orange-400 mt-1">ابتدا از بخش «اتصال به API کلودفلر» یک اکانت اضافه کنید.</p>' : "";
-  wrap.innerHTML =
-    '<details class="bg-gray-900/50 border border-gray-800 rounded-xl"><summary class="cursor-pointer select-none px-4 py-3 text-sm text-gray-300 font-bold">تنظیمات نمایش نام کانفیگ‌ها</summary><div class="px-4 pb-4 space-y-3 border-t border-gray-800 pt-3">' +
-    '<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="srcDisplayEmoji" class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"' + emojiChecked + '><span class="text-xs text-gray-300">افزودن ایموجی قبل از نام کانفیگ‌ها</span></label>' +
-    '<div><label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="srcDisplayPct" class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"' + pctChecked + '><span class="text-xs text-gray-300">نمایش درصد مصرف ورکر جلوی نام (فقط کانفیگ‌های ورکر)</span></label><p class="text-[10px] text-gray-600 mt-1 pr-6">فقط برای کانفیگ‌های VLESS/Trojan/Shadowsocks کار می‌کند؛ کانفیگ‌های VMess به‌دلیل ساختار base64 پشتیبانی نمی‌شوند.</p>' +
-    '<div class="mt-2 grid grid-cols-2 gap-2" id="srcDisplayPctTarget" style="' + (source.usagePercentEnabled ? "" : "display:none") + '">' +
-    '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" id="srcDisplayPctConn">' + connOptions + '</select>' +
-    '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" dir="ltr" id="srcDisplayPctScript"><option value="">-- ابتدا اتصال را انتخاب کنید --</option></select>' +
-    '</div>' + noConnHint + '</div>' +
-    '<button class="w-full bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 py-2 rounded-lg text-xs font-bold transition" onclick="saveSourceDisplaySettings()">ذخیره تنظیمات نمایش</button>' +
-    '</div></details>';
-  var pctCheckbox = document.getElementById("srcDisplayPct");
-  pctCheckbox.addEventListener("change", function() {
-    document.getElementById("srcDisplayPctTarget").style.display = pctCheckbox.checked ? "" : "none";
-  });
-  var connSelect = document.getElementById("srcDisplayPctConn");
-  var scriptSelect = document.getElementById("srcDisplayPctScript");
-  function loadScriptsForSelectedConnection(preselect) {
-    var connId = connSelect.value;
-    scriptSelect.innerHTML = '<option value="">-- در حال دریافت... --</option>';
-    if (!connId) {
-      scriptSelect.innerHTML = '<option value="">-- ابتدا اتصال را انتخاب کنید --</option>';
-      return;
-    }
-    fetch("/api/cf-connections/" + connId + "/scripts").then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (!data.success || !data.scripts || data.scripts.length === 0) {
-        scriptSelect.innerHTML = '<option value="">-- ورکری یافت نشد --</option>';
-        return;
-      }
-      scriptSelect.innerHTML = data.scripts.map(function(s) {
-        var sel = s.name === preselect ? " selected" : "";
-        return '<option value="' + escapeHtml(s.name) + '"' + sel + '>' + escapeHtml(s.name) + "</option>";
-      }).join("");
-    }).catch(function() {
-      scriptSelect.innerHTML = '<option value="">-- خطا در دریافت --</option>';
-    });
+// Per-part display settings (emoji + live usage-percent), rendered inside
+// each part's card - each part of a subscription may point at a different
+// Worker script, so these settings live per-part rather than per-source.
+function partDisplaySettingsHtml(part) {
+  var emojiChecked = part.emojiEnabled !== false ? " checked" : "";
+  var pctChecked = part.usagePercentEnabled ? " checked" : "";
+  var pctBlock = "";
+  if (part.category === "cloudflare") {
+    var connOptions = '<option value="">' + t("selectCfConnPlaceholder") + '</option>' + cfConnectionOptionsHtml(part.usagePercentCfConnectionId);
+    var noConnHint = editorCfConnectionsCache.length === 0 ? '<p class="text-[11px] text-orange-400 mt-1">' + t("noCfConnYetHint") + '</p>' : "";
+    pctBlock =
+      '<div><label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="part-display-pct h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600" data-part="' + part.id + '"' + pctChecked + '><span class="text-xs text-gray-300">' + t("usagePercentToggleLabel") + '</span></label><p class="text-[10px] text-gray-600 mt-1 pr-6">' + t("usagePercentHint") + '</p>' +
+      '<div class="mt-2 grid grid-cols-2 gap-2 part-display-pct-target" data-part="' + part.id + '" style="' + (part.usagePercentEnabled ? "" : "display:none") + '">' +
+      '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] part-display-pct-conn" data-part="' + part.id + '">' + connOptions + '</select>' +
+      '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] part-display-pct-script" dir="ltr" data-part="' + part.id + '"><option value="">' + t("selectFirstConnHint") + '</option></select>' +
+      '</div>' + noConnHint + '</div>';
   }
-  connSelect.addEventListener("change", function() {
-    loadScriptsForSelectedConnection(null);
-  });
-  if (source.usagePercentCfConnectionId) loadScriptsForSelectedConnection(source.usagePercentScriptName);
+  return (
+    '<details class="bg-gray-900/50 border border-gray-800 rounded-xl"><summary class="cursor-pointer select-none px-3 py-2 text-xs text-gray-300 font-bold">' + t("displaySettingsSummary") + '</summary><div class="px-3 pb-3 space-y-3 border-t border-gray-800 pt-3">' +
+    '<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="part-display-emoji h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600" data-part="' + part.id + '"' + emojiChecked + '><span class="text-xs text-gray-300">' + t("emojiToggleLabel") + '</span></label>' +
+    pctBlock +
+    '</div></details>'
+  );
 }
-function saveSourceDisplaySettings() {
-  if (!editorSourceId) return;
-  var emojiEnabled = document.getElementById("srcDisplayEmoji").checked;
-  var usagePercentEnabled = document.getElementById("srcDisplayPct").checked;
-  var payload = { emojiEnabled, usagePercentEnabled };
-  if (usagePercentEnabled) {
-    var connId = document.getElementById("srcDisplayPctConn").value;
-    var scriptName = document.getElementById("srcDisplayPctScript").value;
-    if (!connId || !scriptName) {
-      showToast("یک اتصال API و یک ورکر انتخاب کنید", "error");
+function loadScriptsIntoSelect(connSelect, scriptSelect, preselect) {
+  var connId = connSelect.value;
+  scriptSelect.innerHTML = '<option value="">' + t("fetchingEllipsis") + '</option>';
+  if (!connId) {
+    scriptSelect.innerHTML = '<option value="">' + t("selectFirstConnHint") + '</option>';
+    return;
+  }
+  fetchWithRetry("/api/cf-connections/" + connId + "/scripts").then(function(res) {
+    return res.json();
+  }).then(function(data) {
+    if (!data.success || !data.scripts || data.scripts.length === 0) {
+      scriptSelect.innerHTML = '<option value="">' + t("noScriptsOptionLabel") + '</option>';
       return;
     }
-    payload.usagePercentCfConnectionId = connId;
-    payload.usagePercentScriptName = scriptName;
-  }
-  jsonFetch("/api/sources/" + editorSourceId + "/display-settings", { method: "PUT", body: JSON.stringify(payload) }).then(function(r) {
-    if (r.ok && r.result.success) {
-      showToast("تنظیمات نمایش ذخیره شد");
-      loadData();
-    } else showToast(translateApiError(r.result, "ذخیره ناموفق بود"), "error");
+    scriptSelect.innerHTML = data.scripts.map(function(s) {
+      var sel = s.name === preselect ? " selected" : "";
+      return '<option value="' + escapeHtml(s.name) + '"' + sel + '>' + escapeHtml(s.name) + "</option>";
+    }).join("");
   }).catch(function() {
-    showToast("خطای شبکه", "error");
+    scriptSelect.innerHTML = '<option value="">' + t("fetchErrorOptionLabel") + '</option>';
+  });
+}
+function wirePartDisplaySettingsEvents(container, parts) {
+  parts.forEach(function(part) {
+    var pctCheckbox = container.querySelector('.part-display-pct[data-part="' + part.id + '"]');
+    var targetBlock = container.querySelector('.part-display-pct-target[data-part="' + part.id + '"]');
+    if (pctCheckbox && targetBlock) {
+      pctCheckbox.addEventListener("change", function() {
+        targetBlock.style.display = pctCheckbox.checked ? "" : "none";
+      });
+    }
+    var connSelect = container.querySelector('.part-display-pct-conn[data-part="' + part.id + '"]');
+    var scriptSelect = container.querySelector('.part-display-pct-script[data-part="' + part.id + '"]');
+    if (connSelect && scriptSelect) {
+      connSelect.addEventListener("change", function() {
+        loadScriptsIntoSelect(connSelect, scriptSelect, null);
+      });
+      if (part.usagePercentCfConnectionId) loadScriptsIntoSelect(connSelect, scriptSelect, part.usagePercentScriptName);
+    }
   });
 }
 function partTitle(part, idx, allParts) {
-  if (part.kind === "manual") return "\u06A9\u0627\u0646\u0641\u06CC\u06AF\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC";
+  if (part.kind === "manual") return t("manualConfigsTitle");
   var urlPosition = 0;
   for (var i = 0; i <= idx; i++) {
     if (allParts[i] && allParts[i].kind !== "manual") urlPosition++;
   }
-  return "\u0645\u0646\u0628\u0639 " + urlPosition;
+  return t("sourcePrefixLabel") + " " + urlPosition;
 }
 function cleanIpListOptionsHtml(lists, selectedId) {
   return lists.map(function(l) {
@@ -933,28 +1458,28 @@ function renderConfigRow(c, part) {
   var rowClass = isDeleted ? "bg-gray-900/20 border border-dashed border-gray-700 rounded-lg p-2 opacity-40" : included ? "bg-gray-900/60 border border-gray-800 rounded-lg p-2" : "bg-gray-900/30 border border-red-900/40 rounded-lg p-2 opacity-50";
   var pendingName = pendingNameEdits.hasOwnProperty(c.configId) ? pendingNameEdits[c.configId] : null;
   var effectiveName = pendingName !== null ? pendingName || c.name || "AutoSub" : c.customName || c.name || "AutoSub";
-  var nameHtml = isDeleted ? '<span class="flex-1 min-w-0 truncate text-xs text-gray-500 line-through">' + escapeHtml(effectiveName) + "</span>" : '<span class="cfg-name-wrap flex items-baseline gap-1 min-w-0 flex-1 basis-32" data-part="' + part.id + '" data-id="' + c.configId + '" data-default-name="' + escapeHtml(c.name || "AutoSub") + '" data-saved-custom="' + escapeHtml(c.customName || "") + '" data-host="' + escapeHtml(c.host || "") + '"><span class="cfg-name-display flex-1 min-w-0 truncate text-xs text-gray-300 cursor-text hover:text-white transition" title="\u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u0627\u06CC\u0646 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F">' + escapeHtml(effectiveName) + '</span><span class="max-w-[45%] min-w-0 shrink truncate text-[11px] text-gray-600" title="' + escapeHtml(c.host || "") + '">(' + escapeHtml(c.host || "") + ")</span></span>";
-  var deleteBtn = isDeleted ? '<button class="undo-delete-config-btn text-emerald-400 hover:text-emerald-300 px-1" title="\u0628\u0627\u0632\u06AF\u0631\u062F\u0627\u0646\u06CC" data-part="' + part.id + '" data-id="' + c.configId + '">' + UNDO_ICON + "</button>" : '<button class="delete-config-btn text-red-400 hover:text-red-300 px-1" title="\u062D\u0630\u0641" data-part="' + part.id + '" data-id="' + c.configId + '">' + TRASH_ICON + "</button>";
-  var checkboxHtml = isDeleted ? '<span class="h-4 w-4 shrink-0 inline-block"></span>' : '<input type="checkbox" class="config-include-cb h-4 w-4 rounded border-gray-700 bg-gray-900 text-emerald-500 shrink-0" title="\u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u062F\u0631 \u062E\u0631\u0648\u062C\u06CC \u0646\u0647\u0627\u06CC\u06CC" data-part="' + part.id + '" data-id="' + c.configId + '"' + (included ? " checked" : "") + ">";
-  var dragHandle = isDeleted ? '<span class="w-4 h-4 shrink-0 text-gray-700">' + DRAG_HANDLE_ICON + "</span>" : '<span class="drag-handle-btn text-gray-600 hover:text-gray-300 cursor-grab active:cursor-grabbing shrink-0" style="touch-action:none" title="\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u06AF\u0647 \u062F\u0627\u0631\u06CC\u062F \u0648 \u0628\u06A9\u0634\u06CC\u062F" data-part="' + part.id + '" data-id="' + c.configId + '">' + DRAG_HANDLE_ICON + "</span>";
+  var nameHtml = isDeleted ? '<span class="flex-1 min-w-0 truncate text-xs text-gray-500 line-through">' + escapeHtml(effectiveName) + "</span>" : '<span class="cfg-name-wrap flex items-baseline gap-1 min-w-0 flex-1 basis-32" data-part="' + part.id + '" data-id="' + c.configId + '" data-default-name="' + escapeHtml(c.name || "AutoSub") + '" data-saved-custom="' + escapeHtml(c.customName || "") + '" data-host="' + escapeHtml(c.host || "") + '"><span class="cfg-name-display flex-1 min-w-0 truncate text-xs text-gray-300 cursor-text hover:text-white transition" title="' + escapeHtml(t("editNameTitle")) + '">' + escapeHtml(effectiveName) + '</span><span class="max-w-[45%] min-w-0 shrink truncate text-[11px] text-gray-600" title="' + escapeHtml(c.host || "") + '">(' + escapeHtml(c.host || "") + ")</span></span>";
+  var deleteBtn = isDeleted ? '<button class="undo-delete-config-btn text-emerald-400 hover:text-emerald-300 px-1" title="' + escapeHtml(t("undoTitle")) + '" data-part="' + part.id + '" data-id="' + c.configId + '">' + UNDO_ICON + "</button>" : '<button class="delete-config-btn text-red-400 hover:text-red-300 px-1" title="' + escapeHtml(t("deleteTitle")) + '" data-part="' + part.id + '" data-id="' + c.configId + '">' + TRASH_ICON + "</button>";
+  var checkboxHtml = isDeleted ? '<span class="h-4 w-4 shrink-0 inline-block"></span>' : '<input type="checkbox" class="config-include-cb h-4 w-4 rounded border-gray-700 bg-gray-900 text-emerald-500 shrink-0" title="' + escapeHtml(t("includeInOutputTitle")) + '" data-part="' + part.id + '" data-id="' + c.configId + '"' + (included ? " checked" : "") + ">";
+  var dragHandle = isDeleted ? '<span class="w-4 h-4 shrink-0 text-gray-700">' + DRAG_HANDLE_ICON + "</span>" : '<span class="drag-handle-btn text-gray-600 hover:text-gray-300 cursor-grab active:cursor-grabbing shrink-0" style="touch-action:none" title="' + escapeHtml(t("dragHandleTitle")) + '" data-part="' + part.id + '" data-id="' + c.configId + '">' + DRAG_HANDLE_ICON + "</span>";
   return '<div class="' + rowClass + '" data-config-id="' + c.configId + '" dir="ltr"><div class="flex items-center flex-wrap gap-2">' + dragHandle + checkboxHtml + nameHtml + '<div class="flex items-center gap-1 shrink-0">' + deleteBtn + '</div><div class="flex items-center gap-1.5 shrink-0"><span class="text-[10px] font-bold px-2 py-0.5 rounded ' + badgeColor + '">' + String(c.protocol || "?").toUpperCase() + "</span>" + tlsBadge + portBadge + "</div></div></div>";
 }
 function renderPartCard(part, lists, idx, allParts) {
   var fetchBadge = "";
   if (part.kind === "url") {
     if (part.lastFetchOk === false) {
-      fetchBadge = '<span title="\u0622\u062E\u0631\u06CC\u0646 \u0648\u0627\u06A9\u0634\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 - \u0646\u0633\u062E\u0647\u200C\u06CC \u0642\u0628\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg></span>';
+      fetchBadge = '<span title="' + escapeHtml(t("fetchFailTitle")) + '" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg></span>';
     } else if (part.lastFetchOk === true) {
-      fetchBadge = '<span title="\u0622\u062E\u0631\u06CC\u0646 \u0648\u0627\u06A9\u0634\u06CC \u0645\u0648\u0641\u0642" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>';
+      fetchBadge = '<span title="' + escapeHtml(t("fetchOkTitle")) + '" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>';
     }
   }
-  var deletePartBtn = '<button class="delete-part-btn text-red-400 hover:text-red-300 hover:bg-red-500/10 p-1 rounded transition shrink-0" title="\u062D\u0630\u0641 \u0627\u06CC\u0646 \u0628\u062E\u0634" data-part="' + part.id + '">' + TRASH_ICON + "</button>";
-  var titleWithBadge = '<span class="flex items-center gap-1.5 min-w-0"><span class="truncate">' + partTitle(part, idx, allParts) + "</span>" + fetchBadge + "</span>";
+  var deletePartBtn = '<button class="delete-part-btn text-red-400 hover:text-red-300 hover:bg-red-500/10 p-1 rounded transition shrink-0" title="' + escapeHtml(t("deleteEntirePart")) + '" data-part="' + part.id + '">' + TRASH_ICON + "</button>";
+  var titleWithBadge = '<span class="flex items-center gap-1.5 min-w-0"><span class="truncate">' + escapeHtml(partTitle(part, idx, allParts)) + "</span>" + fetchBadge + "</span>";
   var urlBox = part.kind === "url" ? '<div class="bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 mb-3 text-[11px] text-gray-500 truncate" dir="ltr">' + escapeHtml(part.url || "") + "</div>" : "";
   var orderedConfigs = orderedConfigsForPart(part);
   var configRows = orderedConfigs.map(function(c) {
     return renderConfigRow(c, part);
-  }).join("") || '<div class="text-center text-gray-600 text-xs py-3">\u0647\u0646\u0648\u0632 \u06A9\u0627\u0646\u0641\u06CC\u06AF\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0646\u06CC\u0633\u062A.</div>';
+  }).join("") || '<div class="text-center text-gray-600 text-xs py-3">' + t("noConfigYet") + '</div>';
   var visibleConfigs = orderedConfigs.filter(function(c) {
     return !pendingDeletes[c.configId];
   });
@@ -965,19 +1490,23 @@ function renderPartCard(part, lists, idx, allParts) {
   var noneIncluded = visibleConfigs.length > 0 && visibleConfigs.every(function(c) {
     return !isIncludedNow(c);
   });
-  var selectAllRow = visibleConfigs.length > 0 ? '<div class="flex items-center gap-2 mb-2" dir="ltr"><input type="checkbox" class="select-all-cb h-4 w-4 rounded border-gray-700 bg-gray-900 text-emerald-500" data-part="' + part.id + '"' + (allIncluded ? " checked" : "") + (!allIncluded && !noneIncluded ? ' data-indeterminate="1"' : "") + '><label class="text-[11px] text-gray-500">\u0627\u0646\u062A\u062E\u0627\u0628/\u0644\u063A\u0648</label></div>' : "";
-  var rangeOnlyBlock = '<div><div class="flex items-center gap-2"><input type="checkbox" id="matchRanges-' + part.id + '"' + (part.matchKnownRangesOnly !== false ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="matchRanges-' + part.id + '" class="text-xs text-gray-400">\u0641\u0642\u0637 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u0647\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u06A9\u0644\u0648\u062F\u0641\u0644\u0631</label></div><p class="text-[11px] text-gray-500 mt-1 pr-6">\u0631\u0648\u0634\u0646: \u0641\u0642\u0637 \u0647\u0627\u0633\u062A\u200C\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u0647\u0645\u06CC\u0646 \u0627\u0644\u0627\u0646 \u06CC\u06A9 \u0622\u06CC\u200C\u067E\u06CC \u06A9\u0644\u0648\u062F\u0641\u0644\u0631 \u0647\u0633\u062A\u0646\u062F \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062E\u0627\u0645\u0648\u0634: \u0647\u0627\u0633\u062A \u0647\u0645\u0647\u200C\u06CC \u06A9\u0627\u0646\u0641\u06CC\u06AF\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0628\u062E\u0634 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u06CC\u200C\u0634\u0648\u062F.</p></div>';
-  var autoRefreshBlock = part.kind === "url" ? '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-2.5 space-y-2"><div class="flex items-center gap-2"><input type="checkbox" id="autoRefresh-' + part.id + '"' + (part.autoRefreshEnabled !== false ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="autoRefresh-' + part.id + '" class="text-xs text-gray-400">\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9</label></div><div class="flex items-center gap-2"><span class="text-[11px] text-gray-500 shrink-0">\u0647\u0631</span><input type="number" id="autoRefreshMinutes-' + part.id + '" min="15" value="' + (part.autoRefreshMinutes || 1440) + '" class="w-24 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs"><span class="text-[11px] text-gray-500 shrink-0">\u062F\u0642\u06CC\u0642\u0647</span></div></div>' : "";
-  var nameModeBlock = '<div><label class="flex items-center gap-2 cursor-pointer mb-2"><input type="checkbox" id="nameModeOriginal-' + part.id + '"' + (part.nameMode === "original" ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><span class="text-[11px] text-gray-300">به‌جای نام‌گذاری خودکار توسط پنل، نام اصلی کانفیگ‌ها حفظ شود</span></label><div id="autoNumberWrap-' + part.id + '"' + (part.nameMode === "original" ? ' class="hidden"' : "") + '><label class="flex items-center gap-2 cursor-pointer pr-1"><input type="checkbox" id="autoNumberEnabled-' + part.id + '"' + (part.autoNumberEnabled !== false ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-indigo-600"><span class="text-[11px] text-gray-500">شماره‌گذاری خودکار</span></label></div></div>';
+  var selectAllRow = visibleConfigs.length > 0 ? '<div class="flex items-center gap-2 mb-2" dir="ltr"><input type="checkbox" class="select-all-cb h-4 w-4 rounded border-gray-700 bg-gray-900 text-emerald-500" data-part="' + part.id + '"' + (allIncluded ? " checked" : "") + (!allIncluded && !noneIncluded ? ' data-indeterminate="1"' : "") + '><label class="text-[11px] text-gray-500">' + t("selectAllToggleLabel") + '</label></div>' : "";
+  var rangeOnlyBlock = '<div><div class="flex items-center gap-2"><input type="checkbox" id="matchRanges-' + part.id + '"' + (part.matchKnownRangesOnly !== false ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="matchRanges-' + part.id + '" class="text-xs text-gray-400">' + t("onlyKnownRangesLabel") + '</label></div><p class="text-[11px] text-gray-500 mt-1 pr-6">' + t("onlyKnownRangesHint") + '</p></div>';
+  var autoRefreshBlock = part.kind === "url" ? '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-2.5 space-y-2"><div class="flex items-center gap-2"><input type="checkbox" id="autoRefresh-' + part.id + '"' + (part.autoRefreshEnabled !== false ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="autoRefresh-' + part.id + '" class="text-xs text-gray-400">' + t("autoRefreshLabel") + '</label></div><div class="flex items-center gap-2"><span class="text-[11px] text-gray-500 shrink-0">' + t("everyLabel") + '</span><input type="number" id="autoRefreshMinutes-' + part.id + '" min="15" value="' + (part.autoRefreshMinutes || 1440) + '" class="w-24 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs"><span class="text-[11px] text-gray-500 shrink-0">' + t("minutesLabel") + '</span></div></div>' : "";
+  var nameModeBlock = '<div><label class="flex items-center gap-2 cursor-pointer mb-2"><input type="checkbox" id="nameModeOriginal-' + part.id + '"' + (part.nameMode === "original" ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><span class="text-[11px] text-gray-300">' + t("keepOriginalNamesLabel") + '</span></label><div id="autoNumberWrap-' + part.id + '"' + (part.nameMode === "original" ? ' class="hidden"' : "") + '><label class="flex items-center gap-2 cursor-pointer pr-1"><input type="checkbox" id="autoNumberEnabled-' + part.id + '"' + (part.autoNumberEnabled !== false ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-indigo-600"><span class="text-[11px] text-gray-500">' + t("autoNumberLabel") + '</span></label></div></div>';
   var protocolChecked = function(proto) {
     return (part.uploadBoostProtocols || ["vless", "trojan"]).indexOf(proto) !== -1;
   };
-  var uploadBoostBlock = '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><input type="checkbox" id="uploadBoost-' + part.id + '"' + (part.uploadBoostEnabled ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-purple-600"><label for="uploadBoost-' + part.id + '" class="text-xs text-gray-300 font-bold">رفع محدودیت آپلود / دور زدن فیلتر دامنه</label></div><span class="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">فقط کانفیگ‌های TLS</span></div><p class="text-[11px] text-gray-500 leading-relaxed">با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت پیشنهادی سازگار با ابن روش : <a href="https://github.com/patterniha/PattN/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattN</a>/<a href="https://github.com/patterniha/PattNG/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattNG</a></p><div><label class="block text-[10px] mb-1 text-gray-500">این تنظیمات روی کدام پروتکل‌ها اعمال شود؟</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoVless-' + part.id + '"' + (protocolChecked("vless") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">VLESS</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoTrojan-' + part.id + '"' + (protocolChecked("trojan") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">Trojan</span></label></div></div><details class="bg-gray-900/50 border border-gray-800 rounded-lg"><summary class="p-2 text-[11px] text-gray-400 cursor-pointer hover:text-gray-300">تنظیمات پیشرفته (هر پارامتر جدا قابل تنظیم است)</summary><div class="p-3 space-y-3">' +
-    uploadBoostFieldHtml("fp", part.id, part.uploadBoostFingerprint, "اثر انگشت TLS (fp)") +
-    uploadBoostFieldHtml("cs", part.id, part.uploadBoostCipherSuites, "لیست رمزنگارها (cs) - فقط برای security=tls") +
-    uploadBoostFieldHtml("fm", part.id, part.uploadBoostFragmentMask, "تنظیمات فرگمنت (fm) - فقط برای security=tls") +
-    '<button type="button" class="reset-upload-boost-btn flex items-center justify-center gap-1.5 text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-400 px-3 py-1.5 rounded-lg border border-gray-700 transition" data-part="' + part.id + '">' + UNDO_ICON + '<span>بازنشانی به پیش‌فرض</span></button></div></details></div>';
-  return '<div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4" data-part-card="' + part.id + '"><div class="flex items-center justify-between gap-2 mb-2"><h3 class="text-sm font-bold text-white truncate min-w-0">' + titleWithBadge + '</h3><div class="flex items-center gap-1.5 shrink-0">' + deletePartBtn + "</div></div>" + urlBox + '<div class="space-y-3 mb-4 pb-4 border-b border-gray-800"><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="cat-' + part.id + '" value="cloudflare" id="catCf-' + part.id + '"' + (part.category !== "independent" ? " checked" : "") + ' class="text-indigo-600"><span class="text-xs text-gray-300">کانفیگ ورکر</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="cat-' + part.id + '" value="independent" id="catInd-' + part.id + '"' + (part.category === "independent" ? " checked" : "") + ' class="text-indigo-600"><span class="text-xs text-gray-300">کانفیگ مستقل</span></label></div><div class="flex items-center gap-2"><input type="checkbox" id="useCleanIp-' + part.id + '"' + (part.useCleanIp ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="useCleanIp-' + part.id + '" class="text-xs text-gray-400">استفاده از آی‌پی تمیز جایگزین</label></div><div id="rangeOnlyWrap-' + part.id + '"' + (part.category === "independent" ? "" : ' class="hidden"') + ">" + rangeOnlyBlock + '</div><div><label class="block text-[11px] mb-1 text-gray-500">لیست آی‌پی تمیز</label><select id="listId-' + part.id + '" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs">' + cleanIpListOptionsHtml(lists, part.cleanIpListId) + '</select></div>' + nameModeBlock + '<div><label class="block text-[11px] mb-1 text-gray-500">نحوه‌ی توزیع آی‌پی</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="dist-' + part.id + '" value="multiply" id="distMul-' + part.id + '"' + (part.distribution !== "random" ? " checked" : "") + ' class="text-indigo-600"><span class="text-[11px] text-gray-300">تکثیر</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="dist-' + part.id + '" value="random" id="distRand-' + part.id + '"' + (part.distribution === "random" ? " checked" : "") + ' class="text-indigo-600"><span class="text-[11px] text-gray-300">تصادفی</span></label></div></div><div><label class="block text-[11px] mb-1 text-gray-500">پورت‌های مورد نیاز (خالی = همه)</label><div id="ports-' + part.id + '" class="grid grid-cols-4 gap-2"></div></div><div><div class="flex items-center gap-2"><input type="checkbox" id="oneConfigPerPort-' + part.id + '"' + (part.oneConfigPerPort ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-amber-500"><label for="oneConfigPerPort-' + part.id + '" class="text-xs text-gray-400">یک کانفیگ برای هر مقصد</label></div><p class="text-[11px] text-gray-500 mt-1 pr-6">از بین کانفیگ‌هایی که سرور و پورت مقصدشان یکسان است، هر بار فقط یکی به‌صورت تصادفی در خروجی نهایی استفاده می‌شود.</p></div>' + autoRefreshBlock + uploadBoostBlock + (part.truncated ? '<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-2 rounded-lg text-[11px]">⚠️ این بخش به سقف تعداد قالب‌ها رسیده.</div>' : "") + '<button class="save-part-btn w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-xs font-bold transition border border-gray-700" data-part="' + part.id + '">ذخیره تنظیمات این بخش</button></div>' + selectAllRow + '<div class="space-y-2 mb-3" id="configRows-' + part.id + '">' + configRows + '</div><div class="flex gap-2"><input type="text" id="newConfig-' + part.id + '" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-mono" dir="ltr" placeholder="vless://..."><button class="add-config-btn bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm font-bold text-white" data-part="' + part.id + '">افزودن</button></div></div>';
+  // v1.1.5: clarify that an empty fp/cs/fm field means that layer is
+  // skipped entirely - this wasn't documented anywhere in the UI before,
+  // so a user clearing a field to "turn it off" had no way to know it
+  // actually worked.
+  var uploadBoostBlock = '<div class="bg-gray-950/60 border border-gray-800 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><input type="checkbox" id="uploadBoost-' + part.id + '"' + (part.uploadBoostEnabled ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-purple-600"><label for="uploadBoost-' + part.id + '" class="text-xs text-gray-300 font-bold">' + t("uploadLimitFixTitle") + '</label></div><span class="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">' + t("tlsOnlyBadge") + '</span></div><p class="text-[11px] text-gray-500 leading-relaxed">' + t("uploadBoostDesc") + ' <a href="https://github.com/patterniha/PattN/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattN</a>/<a href="https://github.com/patterniha/PattNG/releases" target="_blank" rel="noopener" class="text-purple-400 hover:text-purple-300 underline">PattNG</a></p><p class="text-[10px] text-gray-600">' + t("uploadBoostEmptyHint") + '</p><div><label class="block text-[10px] mb-1 text-gray-500">' + t("protocolsApplyLabel") + '</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoVless-' + part.id + '"' + (protocolChecked("vless") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">VLESS</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-1.5 cursor-pointer"><input type="checkbox" id="uploadBoostProtoTrojan-' + part.id + '"' + (protocolChecked("trojan") ? " checked" : "") + ' class="h-3.5 w-3.5 rounded border-gray-700 bg-gray-900 text-purple-600"><span class="text-[11px] text-gray-300">Trojan</span></label></div></div><details class="bg-gray-900/50 border border-gray-800 rounded-lg"><summary class="p-2 text-[11px] text-gray-400 cursor-pointer hover:text-gray-300">' + t("advancedSettingsSummary") + '</summary><div class="p-3 space-y-3">' +
+    uploadBoostFieldHtml("fp", part.id, part.uploadBoostFingerprint, t("fpLabel")) +
+    uploadBoostFieldHtml("cs", part.id, part.uploadBoostCipherSuites, t("csLabel")) +
+    uploadBoostFieldHtml("fm", part.id, part.uploadBoostFragmentMask, t("fmLabel")) +
+    '<button type="button" class="reset-upload-boost-btn flex items-center justify-center gap-1.5 text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-400 px-3 py-1.5 rounded-lg border border-gray-700 transition" data-part="' + part.id + '">' + UNDO_ICON + '<span>' + t("resetToDefaultBtn") + '</span></button></div></details></div>';
+  return '<div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4" data-part-card="' + part.id + '"><div class="flex items-center justify-between gap-2 mb-2"><h3 class="text-sm font-bold text-white truncate min-w-0">' + titleWithBadge + '</h3><div class="flex items-center gap-1.5 shrink-0">' + deletePartBtn + "</div></div>" + urlBox + '<div class="space-y-3 mb-4 pb-4 border-b border-gray-800"><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="cat-' + part.id + '" value="cloudflare" id="catCf-' + part.id + '"' + (part.category !== "independent" ? " checked" : "") + ' class="text-indigo-600"><span class="text-xs text-gray-300">' + t("categoryWorker") + '</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="cat-' + part.id + '" value="independent" id="catInd-' + part.id + '"' + (part.category === "independent" ? " checked" : "") + ' class="text-indigo-600"><span class="text-xs text-gray-300">' + t("categoryIndependent") + '</span></label></div><div class="flex items-center gap-2"><input type="checkbox" id="useCleanIp-' + part.id + '"' + (part.useCleanIp ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600"><label for="useCleanIp-' + part.id + '" class="text-xs text-gray-400">' + t("useCleanIpLabel") + '</label></div><div id="rangeOnlyWrap-' + part.id + '"' + (part.category === "independent" ? "" : ' class="hidden"') + ">" + rangeOnlyBlock + '</div><div><label class="block text-[11px] mb-1 text-gray-500">' + t("cleanIpListLabel") + '</label><select id="listId-' + part.id + '" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs">' + cleanIpListOptionsHtml(lists, part.cleanIpListId) + '</select></div>' + nameModeBlock + '<div><label class="block text-[11px] mb-1 text-gray-500">' + t("distributionLabel") + '</label><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="dist-' + part.id + '" value="multiply" id="distMul-' + part.id + '"' + (part.distribution !== "random" ? " checked" : "") + ' class="text-indigo-600"><span class="text-[11px] text-gray-300">' + t("multiplyLabel") + '</span></label><label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 cursor-pointer"><input type="radio" name="dist-' + part.id + '" value="random" id="distRand-' + part.id + '"' + (part.distribution === "random" ? " checked" : "") + ' class="text-indigo-600"><span class="text-[11px] text-gray-300">' + t("randomLabel") + '</span></label></div></div><div><label class="block text-[11px] mb-1 text-gray-500">' + t("portsLabel") + '</label><div id="ports-' + part.id + '" class="grid grid-cols-4 gap-2"></div></div><div><div class="flex items-center gap-2"><input type="checkbox" id="oneConfigPerPort-' + part.id + '"' + (part.oneConfigPerPort ? " checked" : "") + ' class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-amber-500"><label for="oneConfigPerPort-' + part.id + '" class="text-xs text-gray-400">' + t("oneConfigPerPortLabel") + '</label></div><p class="text-[11px] text-gray-500 mt-1 pr-6">' + t("oneConfigPerPortHint") + '</p></div>' + partDisplaySettingsHtml(part) + autoRefreshBlock + uploadBoostBlock + (part.truncated ? '<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-2 rounded-lg text-[11px]">' + t("partTruncatedWarning") + '</div>' : "") + '<button class="save-part-btn w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-xs font-bold transition border border-gray-700" data-part="' + part.id + '">' + t("savePartBtn") + '</button></div>' + selectAllRow + '<div class="space-y-2 mb-3" id="configRows-' + part.id + '">' + configRows + '</div><div class="flex gap-2"><input type="text" id="newConfig-' + part.id + '" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-mono" dir="ltr" placeholder="' + escapeHtml(t("addConfigPlaceholder")) + '"><button class="add-config-btn bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm font-bold text-white" data-part="' + part.id + '">' + t("addBtn") + '</button></div></div>';
 }
 function renderManualAddCard(lists, parts) {
   var hasManual = parts.some(function(p) {
@@ -992,7 +1521,7 @@ function renderManualAddCard(lists, parts) {
   var card = document.createElement("div");
   card.id = "manualAddCard";
   card.className = "bg-gray-900/30 border border-dashed border-gray-700 rounded-xl p-4 text-center";
-  card.innerHTML = '<p class="text-xs text-gray-500 mb-2">\u0627\u06CC\u0646 \u0645\u0646\u0628\u0639 \u0647\u0646\u0648\u0632 \u0628\u062E\u0634 \xAB\u06A9\u0627\u0646\u0641\u06CC\u06AF\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC\xBB \u0646\u062F\u0627\u0631\u062F.</p><div class="flex gap-2"><input type="text" id="newConfig-manual-new" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-mono" dir="ltr" placeholder="vless://..."><button class="add-config-btn bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm font-bold text-white" data-part="manual-new">\u0627\u0641\u0632\u0648\u062F\u0646</button></div>';
+  card.innerHTML = '<p class="text-xs text-gray-500 mb-2">' + t("noManualPartYet") + '</p><div class="flex gap-2"><input type="text" id="newConfig-manual-new" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-mono" dir="ltr" placeholder="vless://..."><button class="add-config-btn bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm font-bold text-white" data-part="manual-new">' + t("addBtn") + '</button></div>';
   document.getElementById("editorPartsContainer").appendChild(card);
 }
 function flushPendingNameEditsForPart(partId) {
@@ -1027,6 +1556,24 @@ function savePartSettings(partId) {
     return cb.value;
   });
   var payload = { category, useCleanIp, matchKnownRangesOnly, distribution, cleanIpListId, oneConfigPerPort, selectedPorts };
+  var emojiCb = document.querySelector('.part-display-emoji[data-part="' + partId + '"]');
+  if (emojiCb) payload.emojiEnabled = emojiCb.checked;
+  var pctCb = document.querySelector('.part-display-pct[data-part="' + partId + '"]');
+  if (pctCb) {
+    payload.usagePercentEnabled = pctCb.checked;
+    if (pctCb.checked) {
+      var connSelect = document.querySelector('.part-display-pct-conn[data-part="' + partId + '"]');
+      var scriptSelect = document.querySelector('.part-display-pct-script[data-part="' + partId + '"]');
+      var connId = connSelect ? connSelect.value : "";
+      var scriptName = scriptSelect ? scriptSelect.value : "";
+      if (!connId || !scriptName) {
+        showToast(t("needConnAndScript"), "error");
+        return;
+      }
+      payload.usagePercentCfConnectionId = connId;
+      payload.usagePercentScriptName = scriptName;
+    }
+  }
   var nameModeOriginalEl = document.getElementById("nameModeOriginal-" + partId);
   if (nameModeOriginalEl) payload.nameMode = nameModeOriginalEl.checked ? "original" : "auto";
   var autoNumberEl = document.getElementById("autoNumberEnabled-" + partId);
@@ -1049,7 +1596,7 @@ function savePartSettings(partId) {
     var minutesEl = document.getElementById("autoRefreshMinutes-" + partId);
     var minutes = parseInt(minutesEl.value, 10);
     if (!minutes || minutes < 15) {
-      showToast("\u062D\u062F\u0627\u0642\u0644 \u0641\u0627\u0635\u0644\u0647\u200C\u06CC \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u06F1\u06F5 \u062F\u0642\u06CC\u0642\u0647 \u0627\u0633\u062A", "error");
+      showToast(t("autoRefreshMinInvalid"), "error");
       return;
     }
     payload.autoRefreshEnabled = autoRefreshEl.checked;
@@ -1068,10 +1615,10 @@ function savePartSettings(partId) {
   ]).then(function(results) {
     var batchResult = results[1];
     if (!(batchResult.ok && batchResult.result.success)) {
-      showToast(translateApiError(batchResult.result, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+      showToast(translateApiError(batchResult.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).CONFIG_BATCH_UPDATE_FAILED), "error");
       return Promise.reject(new Error("batch-failed"));
     }
-    if (batchResult.result.capped) showToast("\u0628\u0631\u062E\u06CC \u06A9\u0627\u0646\u0641\u06CC\u06AF\u200C\u0647\u0627 \u0628\u0647 \u0633\u0642\u0641 \u062A\u0639\u062F\u0627\u062F \u0628\u0644\u0627\u06A9 \u0631\u0633\u06CC\u062F\u0646\u062F \u0648 \u0627\u0639\u0645\u0627\u0644 \u0646\u0634\u062F\u0646\u062F", "error");
+    if (batchResult.result.capped) showToast(t("blockedConfigsCapped"), "error");
     return jsonFetch("/api/sources/" + editorSourceId + "/parts/" + partId, {
       method: "PUT",
       body: JSON.stringify(payload)
@@ -1079,16 +1626,16 @@ function savePartSettings(partId) {
   }).then(function(r) {
     if (!r) return;
     if (r.ok && r.result.success) {
-      showToast("\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F");
+      showToast(t("partSettingsSaved"));
       clearPendingConfigStateForPart(partId);
     } else {
-      showToast(translateApiError(r.result, "\u0630\u062E\u06CC\u0631\u0647 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+      showToast(translateApiError(r.result, t("partSettingsSaveFailed")), "error");
     }
     loadData();
     refreshConfigEditor();
   }).catch(function(e) {
     if (e && e.message === "batch-failed") return;
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function computePartBatchPayload(partId) {
@@ -1167,7 +1714,7 @@ function renderConfigNameWrap(wrap) {
   var shown = pendingNameEdits.hasOwnProperty(configId) ? pendingNameEdits[configId] || defaultName : savedCustom || defaultName;
   var nameSpan = document.createElement("span");
   nameSpan.className = "cfg-name-display flex-1 min-w-0 truncate text-xs text-gray-300 cursor-text hover:text-white transition";
-  nameSpan.title = "\u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u0627\u06CC\u0646 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F";
+  nameSpan.title = t("editNameTitle");
   nameSpan.textContent = shown;
   var hostSpan = document.createElement("span");
   hostSpan.className = "max-w-[45%] min-w-0 shrink truncate text-[11px] text-gray-600";
@@ -1182,18 +1729,18 @@ function addConfigToPart(partId) {
   var input = document.getElementById("newConfig-" + partId);
   var raw = input.value.trim();
   if (!raw) {
-    showToast("\u06CC\u06A9 \u06A9\u0627\u0646\u0641\u06CC\u06AF \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F", "error");
+    showToast(t("configRequired"), "error");
     return;
   }
   jsonFetch("/api/sources/" + editorSourceId + "/parts/" + partId + "/configs", { method: "POST", body: JSON.stringify({ raw }) }).then(function(r) {
     if (r.ok && r.result.success) {
       input.value = "";
-      showToast("\u06A9\u0627\u0646\u0641\u06CC\u06AF \u0627\u0636\u0627\u0641\u0647 \u0634\u062F");
+      showToast(t("configAdded"));
       loadData();
       refreshConfigEditor();
-    } else showToast(translateApiError(r.result, "\u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+    } else showToast(translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).CONFIG_ADD_FAILED), "error");
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 function rerenderPartCardInPlace(partId) {
@@ -1232,18 +1779,18 @@ function stageAllConfigsIncluded(partId, selected) {
 }
 function deletePart(partId) {
   if (!editorSourceId) return;
-  if (!confirm("\u0627\u06CC\u0646 \u0628\u062E\u0634 \u0628\u0647\u200C\u0637\u0648\u0631 \u06A9\u0627\u0645\u0644 \u062D\u0630\u0641 \u0634\u0648\u062F\u061F \u0627\u06CC\u0646 \u06A9\u0627\u0631 \u0642\u0627\u0628\u0644 \u0628\u0627\u0632\u06AF\u0634\u062A \u0646\u06CC\u0633\u062A.")) return;
+  if (!confirm(t("confirmDeletePart"))) return;
   jsonFetch("/api/sources/" + editorSourceId + "/parts/" + partId, { method: "DELETE" }).then(function(r) {
     if (r.ok && r.result.success) {
-      showToast("\u0628\u062E\u0634 \u062D\u0630\u0641 \u0634\u062F");
+      showToast(t("partDeleted"));
       clearPendingConfigStateForPart(partId);
       loadData();
       refreshConfigEditor();
     } else {
-      showToast(translateApiError(r.result, "\u062D\u0630\u0641 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"), "error");
+      showToast(translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).PART_DELETE_FAILED), "error");
     }
   }).catch(function() {
-    showToast("\u062E\u0637\u0627\u06CC \u0634\u0628\u06A9\u0647", "error");
+    showToast(t("networkError"), "error");
   });
 }
 document.getElementById("editorPartsContainer").addEventListener("click", function(e) {
