@@ -164,6 +164,7 @@ var UI_TEXT = {
     fetchErrorOptionLabel: "-- خطا در دریافت --",
     needConnAndScript: "یک اتصال API و یک ورکر انتخاب کنید",
     noCfConnYetHint: "ابتدا از بخش «اتصال به API کلودفلر» یک اکانت اضافه کنید.",
+    usagePercentConnMissingHint: "اتصال API که قبلاً برای این بخش انتخاب شده بود، دیگر وجود ندارد (احتمالاً حذف شده یا از یک بک‌آپ قدیمی بازیابی شده است). یک اتصال را از لیست بالا دوباره انتخاب و ذخیره کنید.",
     uploadLimitFixTitle: "رفع محدودیت آپلود / دور زدن فیلتر دامنه",
     tlsOnlyBadge: "فقط کانفیگ‌های TLS",
     uploadBoostDesc: "با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت پیشنهادی سازگار با این روش :",
@@ -352,6 +353,7 @@ var UI_TEXT = {
     fetchErrorOptionLabel: "-- Fetch error --",
     needConnAndScript: "Select an API connection and a worker",
     noCfConnYetHint: "First add an account under “Cloudflare API Connection”.",
+    usagePercentConnMissingHint: "The API connection previously selected for this part no longer exists (it may have been deleted, or restored from an older backup). Pick a connection from the list above and save again.",
     uploadLimitFixTitle: "Upload limit bypass / domain filtering bypass",
     tlsOnlyBadge: "TLS configs only",
     uploadBoostDesc: "Using the Patternia method, changes the TLS fingerprint and fragment settings on TLS configs to make detection and throttling by filtering harder. Recommended compatible client:",
@@ -1409,14 +1411,29 @@ function partDisplaySettingsHtml(part) {
   var pctChecked = part.usagePercentEnabled ? " checked" : "";
   var pctBlock = "";
   if (part.category === "cloudflare") {
+    var connectionStillExists = !part.usagePercentCfConnectionId || editorCfConnectionsCache.some(function(c) {
+      return c.id === part.usagePercentCfConnectionId;
+    });
     var connOptions = '<option value="">' + t("selectCfConnPlaceholder") + '</option>' + cfConnectionOptionsHtml(part.usagePercentCfConnectionId);
     var noConnHint = editorCfConnectionsCache.length === 0 ? '<p class="text-[11px] text-orange-400 mt-1">' + t("noCfConnYetHint") + '</p>' : "";
+    // A part can end up pointing at a connection that no longer exists -
+    // most commonly, that connection was deleted from the panel (e.g. an
+    // expired API token) while this part still had it selected, or a
+    // backup restore reintroduced sources referencing a connection that
+    // was never re-added. Left unflagged, the dropdown below would just
+    // silently default to a different connection, and saving the part
+    // would silently repoint usage-% tracking at the wrong account without
+    // the user ever noticing.
+    var missingConnHint =
+      part.usagePercentEnabled && part.usagePercentCfConnectionId && !connectionStillExists
+        ? '<p class="text-[11px] text-orange-400 mt-1">' + t("usagePercentConnMissingHint") + "</p>"
+        : "";
     pctBlock =
       '<div><label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="part-display-pct h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-600" data-part="' + part.id + '"' + pctChecked + '><span class="text-xs text-gray-300">' + t("usagePercentToggleLabel") + '</span></label><p class="text-[10px] text-gray-600 mt-1 pr-6">' + t("usagePercentHint") + '</p>' +
       '<div class="mt-2 grid grid-cols-2 gap-2 part-display-pct-target" data-part="' + part.id + '" style="' + (part.usagePercentEnabled ? "" : "display:none") + '">' +
       '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] part-display-pct-conn" data-part="' + part.id + '">' + connOptions + '</select>' +
       '<select class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] part-display-pct-script" dir="ltr" data-part="' + part.id + '"><option value="">' + t("selectFirstConnHint") + '</option></select>' +
-      '</div>' + noConnHint + '</div>';
+      '</div>' + noConnHint + missingConnHint + '</div>';
   }
   return (
     '<details class="bg-gray-900/50 border border-gray-800 rounded-xl"><summary class="cursor-pointer select-none px-3 py-2 text-xs text-gray-300 font-bold">' + t("displaySettingsSummary") + '</summary><div class="px-3 pb-3 space-y-3 border-t border-gray-800 pt-3">' +
