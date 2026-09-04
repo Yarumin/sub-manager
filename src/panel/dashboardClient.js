@@ -989,14 +989,9 @@ function toggleCfPlacementBox(connId) {
       return;
     }
     // Prefer the live, complete region list straight from Cloudflare's API;
-    // fall back to the small hardcoded preset list if the fetch failed, the
-    // token lacks permission for it, or the returned entries don't actually
-    // look like valid "provider:region" values (defensive: Cloudflare
-    // doesn't publicly document this endpoint's exact per-region shape).
-    var liveRegionsValid = regionsData && regionsData.success && Array.isArray(regionsData.regions) && regionsData.regions.length > 0 &&
-      regionsData.regions.every(function(r) {
-        return r && typeof r.value === "string" && /^[a-z]+:[a-z0-9-]+$/i.test(r.value);
-      });
+    // fall back to the small hardcoded preset list if the fetch failed or
+    // the token lacks permission for it.
+    var liveRegionsValid = regionsData && regionsData.success && Array.isArray(regionsData.regions) && regionsData.regions.length > 0;
     var regionsList = liveRegionsValid ? regionsData.regions : placementRegionPresets();
     var regionOptions = regionsList.map(function(r) {
       return '<option value="' + escapeHtml(r.value) + '">' + escapeHtml(r.label) + '</option>';
@@ -1104,7 +1099,7 @@ document.getElementById("cfConnectionsList").addEventListener("click", function(
   }
 });
 function statsCardSkeleton(conn) {
-  return '<div class="bg-gray-900/50 p-5 rounded-xl border border-gray-800" id="cf-card-' + conn.id + '"><div class="flex items-center justify-between"><div><span class="text-gray-400 text-sm block mb-1">' + escapeHtml(conn.label) + '</span><div class="flex items-baseline gap-2"><strong class="cf-req-value text-3xl text-white font-black">---</strong><span class="text-gray-500 text-sm">/ 100,000 ' + (currentLang === "fa" ? "راه‌گان" : "requests") + '</span></div></div><div class="cf-chart-el w-16 h-16 rounded-full border-4 border-gray-800 flex items-center justify-center relative"><span class="text-xs text-gray-500">%</span></div></div><div class="cf-err-box hidden mt-3 text-orange-400 text-[11px]"></div></div>';
+  return '<div class="bg-gray-900/50 p-5 rounded-xl border border-gray-800" id="cf-card-' + conn.id + '"><div class="flex items-center justify-between"><div><span class="text-gray-400 text-sm block mb-1">' + escapeHtml(conn.label) + '</span><div class="flex items-baseline gap-2"><strong class="cf-req-value text-3xl text-white font-black">---</strong><span class="text-gray-500 text-sm">/ 100,000 ' + (currentLang === "fa" ? "رایگان" : "requests") + '</span></div></div><div class="cf-chart-el w-16 h-16 rounded-full border-4 border-gray-800 flex items-center justify-center relative"><span class="text-xs text-gray-500">%</span></div></div><div class="cf-err-box hidden mt-3 text-orange-400 text-[11px]"></div></div>';
 }
 function fetchAllStats() {
   var connections = window.cfConnections || [];

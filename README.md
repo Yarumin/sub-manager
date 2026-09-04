@@ -6,7 +6,7 @@
 
 <br>
 
-Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Trojan, Shadowsocks, VMess) into a single output link, applying per-config processing such as clean-IP substitution, port filtering, and TLS adjustments along the way. It runs as a single Cloudflare Worker with one KV namespace for storage.
+Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Trojan, Shadowsocks, VMess) into a single output link, applying per-config processing such as clean-IP substitution, port filtering, and TLS adjustments along the way. It runs as a single Cloudflare Worker with one KV namespace for storage. The admin panel is bilingual (Persian/English), defaulting to whichever matches the browser's language.
 
 ## Features
 
@@ -15,7 +15,8 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Per-source and per-URL settings: clean-IP list, port filtering, one-config-per-port, restricting substitution to Cloudflare's known IP ranges.
 - Auto-refreshes each URL source on its own interval, triggered on the next request past due time — no Cron Trigger required.
 - Exports and imports sources, clean-IP lists, and Cloudflare connections as a single JSON backup, with merge or replace options.
-- Connects to Cloudflare with a single **Account API Token** for Worker usage stats, listing the account's Worker scripts, changing a Worker's [Placement](https://developers.cloudflare.com/workers/configuration/placement/), and an optional live usage-percentage next to config names.
+- Connects to Cloudflare with a single **Account API Token** for Worker usage stats, listing the account's Worker scripts, and an optional live usage-percentage next to config names.
+- Changes a Worker's [Placement](https://developers.cloudflare.com/workers/configuration/placement/) region straight from the panel (with the current status shown, and the full region list fetched live from Cloudflare). Placement affects where the Worker itself physically runs, which is separate from and doesn't override the clean-IP addresses configs connect through — but pinning a Worker closer to where it's actually used can lower latency, and pinning it to a specific country can also be a way to satisfy services that restrict access by region.
 - Upload-boost: sets TLS fingerprint, cipher suites, and fragmentation on VLESS/Trojan configs (using the method [Patterniha](https://github.com/patterniha) contributed to v2rayNG), plus auto/original config naming and full per-config management (rename, reorder, temporarily disable).
 
 ## Limitations
@@ -24,7 +25,8 @@ Sub Manager merges proxy subscription URLs and manually-added configs (VLESS, Tr
 - Cloudflare's free plan includes 100,000 KV reads and 1,000 KV writes per day, shared across the Worker. Sufficient for personal use.
 - Each part holds up to 1,000 base configs; after clean-IP multiplication, output is capped at 6,000 lines per part, with excess sampled at random.
 - Subscription URL fetches time out after 15 seconds; unreachable sources are marked as failed.
-- Live Worker usage percentage (when enabled) is cached in KV for 60 seconds (Cloudflare KV's own minimum TTL) to avoid hammering Cloudflare's GraphQL API, independent of the subscription's own refresh interval and never affecting manual/auto sync from the panel; it only works for VLESS/Trojan/Shadowsocks configs, not VMess.
+- Live Worker usage percentage (when enabled per part) is cached in KV for 60 seconds (Cloudflare KV's own minimum TTL) to avoid hammering Cloudflare's GraphQL API, independent of the subscription's own refresh interval and never affecting manual/auto sync from the panel; it only works for VLESS/Trojan/Shadowsocks configs, not VMess.
+- Cloudflare doesn't publicly document the exact shape of some Placement-related API responses (e.g. the full region list, or a Worker's current status once a specific region is set); the panel falls back to a small built-in region list if the live fetch doesn't look right, and may show a generic "targeted" label instead of the exact region name in that case.
 
 ## Deployment
 
