@@ -107,6 +107,8 @@ var UI_TEXT = {
     regionRequired: "یک Region انتخاب یا وارد کنید",
     applying: "در حال اعمال...",
     placementApplied: "Placement اعمال شد.",
+    currentPlacementLabel: "وضعیت فعلی:",
+    targetedPlacementLabel: "تعیین‌شده (Region/Host اختصاصی)",
     stateLoadFailed: "خطا در دریافت اطلاعات",
     noUrlOrManual: "لطفاً حداقل یک لینک سابسکریپشن یا یک کانفیگ دستی وارد کنید",
     creatingConfigs: "در حال استخراج قالب‌ها و ساخت کانفیگ‌های جدید...",
@@ -165,7 +167,7 @@ var UI_TEXT = {
     uploadLimitFixTitle: "رفع محدودیت آپلود / دور زدن فیلتر دامنه",
     tlsOnlyBadge: "فقط کانفیگ‌های TLS",
     uploadBoostDesc: "با روش پترنیها، اثر انگشت TLS و تنظیمات فرگمنت را روی کانفیگ‌های TLS تغییر می‌دهد تا شناسایی و محدودسازی توسط فیلترینگ سخت‌تر شود. کلاینت پیشنهادی سازگار با این روش :",
-    uploadBoostEmptyHint: "هر کدام از سه فیلد زیر (fp/cs/fm) را خالی بگذارید و ذخیره کنید تا همان لایه اصلاً در کانفیگ اعمال نشود.",
+    uploadBoostEmptyHint: "اگر هر کدام از فیلدهای زیر (fp/cs/fm) را خالی بگذارید، همان بخش در کانفیگ بدون تغییر می‌ماند.",
     protocolsApplyLabel: "این تنظیمات روی کدام پروتکل‌ها اعمال شود؟",
     advancedSettingsSummary: "تنظیمات پیشرفته (هر پارامتر جدا قابل تنظیم است)",
     fpLabel: "اثر انگشت TLS (fp)",
@@ -293,6 +295,8 @@ var UI_TEXT = {
     regionRequired: "Select or enter a region",
     applying: "Applying...",
     placementApplied: "Placement applied.",
+    currentPlacementLabel: "Current status:",
+    targetedPlacementLabel: "Targeted (custom region/host)",
     stateLoadFailed: "Error loading data",
     noUrlOrManual: "Please enter at least one subscription link or one manual config",
     creatingConfigs: "Extracting templates and creating new configs...",
@@ -351,7 +355,7 @@ var UI_TEXT = {
     uploadLimitFixTitle: "Upload limit bypass / domain filtering bypass",
     tlsOnlyBadge: "TLS configs only",
     uploadBoostDesc: "Using the Patternia method, changes the TLS fingerprint and fragment settings on TLS configs to make detection and throttling by filtering harder. Recommended compatible client:",
-    uploadBoostEmptyHint: "Leave any of the three fields below (fp/cs/fm) empty and save to skip applying that layer to the config at all.",
+    uploadBoostEmptyHint: "If you leave any of the fields below (fp/cs/fm) empty, that part of the config stays unchanged.",
     protocolsApplyLabel: "Which protocols should this apply to?",
     advancedSettingsSummary: "Advanced settings (each parameter is separately adjustable)",
     fpLabel: "TLS fingerprint (fp)",
@@ -985,19 +989,75 @@ function toggleCfPlacementBox(connId) {
       return;
     }
     // Prefer the live, complete region list straight from Cloudflare's API;
-    // fall back to the small hardcoded preset list if the fetch failed or
-    // the token lacks permission for it, so Placement stays usable either
-    // way.
-    var regionsList = regionsData && regionsData.success && regionsData.regions && regionsData.regions.length > 0 ? regionsData.regions : placementRegionPresets();
+    // fall back to the small hardcoded preset list if the fetch failed, the
+    // token lacks permission for it, or the returned entries don't actually
+    // look like valid "provider:region" values (defensive: Cloudflare
+    // doesn't publicly document this endpoint's exact per-region shape).
+    var liveRegionsValid = regionsData && regionsData.success && Array.isArray(regionsData.regions) && regionsData.regions.length > 0 &&
+      regionsData.regions.every(function(r) {
+        return r && typeof r.value === "string" && /^[a-z]+:[a-z0-9-]+$/i.test(r.value);
+      });
+    var regionsList = liveRegionsValid ? regionsData.regions : placementRegionPresets();
     var regionOptions = regionsList.map(function(r) {
       return '<option value="' + escapeHtml(r.value) + '">' + escapeHtml(r.label) + '</option>';
     }).join("");
     var scriptOptions = data.scripts.map(function(s) {
       return '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + "</option>";
     }).join("");
-    box.innerHTML = '<div class="space-y-2"><select class="cf-placement-script w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" dir="ltr">' + scriptOptions + '</select><div class="flex flex-wrap gap-1.5"><button class="cf-placement-apply text-[11px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 px-2 py-1 rounded" data-mode="smart">' + t("smartPlacementBtn") + '</button><button class="cf-placement-apply text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-1 rounded" data-mode="off">' + t("defaultPlacementBtn") + '</button></div><div class="flex items-center gap-1.5" dir="ltr"><select class="cf-placement-region flex-1 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]"><option value="">' + t("placementCustomRegionPlaceholder") + '</option>' + regionOptions + '</select><button class="cf-placement-apply text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-1 rounded shrink-0" data-mode="region">' + t("placementApplyBtn") + '</button></div><input class="cf-placement-region-custom w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] font-mono" dir="ltr" placeholder="' + escapeHtml(t("placementCustomRegionInputPlaceholder")) + '"><p class="text-[10px] text-gray-600">' + t("placementCustomRegionHint") + '</p><div class="cf-placement-result text-[11px]"></div></div>';
+    box.innerHTML = '<div class="space-y-2"><select class="cf-placement-script w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]" dir="ltr">' + scriptOptions + '</select><div class="cf-placement-current text-[10px] text-gray-500"></div><div class="flex flex-wrap gap-1.5"><button class="cf-placement-apply text-[11px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 px-2 py-1 rounded" data-mode="smart">' + t("smartPlacementBtn") + '</button><button class="cf-placement-apply text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-1 rounded" data-mode="off">' + t("defaultPlacementBtn") + '</button></div><div class="flex items-center gap-1.5" dir="ltr"><select class="cf-placement-region flex-1 bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px]"><option value="">' + t("placementCustomRegionPlaceholder") + '</option>' + regionOptions + '</select><button class="cf-placement-apply text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 px-2 py-1 rounded shrink-0" data-mode="region">' + t("placementApplyBtn") + '</button></div><input class="cf-placement-region-custom w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-[11px] font-mono" dir="ltr" placeholder="' + escapeHtml(t("placementCustomRegionInputPlaceholder")) + '"><p class="text-[10px] text-gray-600">' + t("placementCustomRegionHint") + '</p><div class="cf-placement-result text-[11px]"></div></div>';
+    var scriptSelectEl = box.querySelector(".cf-placement-script");
+    scriptSelectEl.addEventListener("change", function() {
+      refreshCfPlacementCurrentStatus(connId, box);
+    });
+    refreshCfPlacementCurrentStatus(connId, box);
   }).catch(function() {
     box.innerHTML = '<span class="text-[11px] text-orange-400">' + t("scriptsFetchFailed") + '</span>';
+  });
+}
+// Shows what Placement mode is actually in effect right now for the
+// selected script, rather than only letting the user blindly set one.
+function refreshCfPlacementCurrentStatus(connId, box) {
+  var statusEl = box.querySelector(".cf-placement-current");
+  var scriptName = box.querySelector(".cf-placement-script").value;
+  if (!statusEl || !scriptName) return;
+  statusEl.textContent = t("fetchingEllipsis");
+  fetchWithRetry("/api/cf-connections/" + connId + "/script-settings/" + encodeURIComponent(scriptName)).then(function(res) {
+    return res.json();
+  }).then(function(data) {
+    if (!data.success) {
+      statusEl.textContent = "";
+      return;
+    }
+    var placement = data.placement;
+    var label;
+    if (!placement || Object.keys(placement).length === 0) {
+      label = t("defaultPlacementBtn");
+    } else if (placement.mode === "smart") {
+      label = t("smartPlacementBtn") + (placement.status ? " (" + placement.status + ")" : "");
+    } else if (placement.region) {
+      // Shape actually PUT to set a region hint: {region: "aws:us-east-1"}.
+      label = placement.region;
+    } else if (placement.mode === "targeted" && Array.isArray(placement.target) && placement.target[0] !== undefined) {
+      // Shape actually returned by GET for a region/host/hostname hint:
+      // Cloudflare normalizes it server-side into {mode:"targeted", target:
+      // [...]}. In practice this has been observed as either an object
+      // ({region|host|hostname, type, id}) or a bare opaque numeric/string
+      // ID with no human-readable value at all - Cloudflare doesn't
+      // publicly document this GET shape. Read whichever applies, and fall
+      // back to just naming the mode rather than dumping raw JSON when
+      // neither does.
+      var target = placement.target[0];
+      if (target && typeof target === "object") {
+        label = target.region || target.hostname || target.host || t("targetedPlacementLabel");
+      } else {
+        label = t("targetedPlacementLabel");
+      }
+    } else {
+      label = JSON.stringify(placement);
+    }
+    statusEl.textContent = t("currentPlacementLabel") + " " + label;
+  }).catch(function() {
+    statusEl.textContent = "";
   });
 }
 document.getElementById("cfConnectionsList").addEventListener("click", function(e) {
@@ -1031,6 +1091,7 @@ document.getElementById("cfConnectionsList").addEventListener("click", function(
       if (r.ok && r.result.success) {
         resultEl.textContent = t("placementApplied");
         resultEl.className = "cf-placement-result text-[11px] text-emerald-400";
+        refreshCfPlacementCurrentStatus(connId, box);
       } else {
         var msg = (r.result && r.result.message) || translateApiError(r.result, (currentLang === "fa" ? ERROR_MESSAGES_FA : ERROR_MESSAGES_EN).CF_PLACEMENT_UPDATE_FAILED);
         resultEl.textContent = msg;

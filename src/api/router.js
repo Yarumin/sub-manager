@@ -17,6 +17,7 @@ import {
   handleGetCloudflareStats,
   handleListCfScripts,
   handleGetCfRegions,
+  handleGetCfScriptSettings,
   handleSetCfPlacement
 } from "./cfConnectionApi.js";
 import { handleExportBackup, handleImportBackup } from "../storage/backupHandlers.js";
@@ -72,6 +73,7 @@ export async function handleApi(parts, request, env, ctx) {
   if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "stats" && method === "GET") return await handleGetCloudflareStats(parts[2], env);
   if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "scripts" && method === "GET") return await handleListCfScripts(parts[2], env);
   if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "regions" && method === "GET") return await handleGetCfRegions(parts[2], env);
+  if (parts.length === 5 && parts[1] === "cf-connections" && parts[3] === "script-settings" && method === "GET") return await handleGetCfScriptSettings(parts[2], decodeURIComponent(parts[4]), env);
   if (parts.length === 4 && parts[1] === "cf-connections" && parts[3] === "placement" && method === "PUT") return await handleSetCfPlacement(parts[2], request, env);
 
   if (parts.length === 2 && parts[1] === "backup" && method === "GET") return await handleExportBackup(env, request);

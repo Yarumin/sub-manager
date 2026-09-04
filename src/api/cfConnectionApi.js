@@ -136,10 +136,50 @@ export async function handleGetCfRegions(connectionId, env) {
       const message = (json && json.errors && json.errors[0] && json.errors[0].message) || null;
       return new Response(JSON.stringify({ success: false, error: "CF_REGIONS_LIST_FAILED", message }), { status: 502 });
     }
-    const regions = (json.result || []).map((r) => ({ value: r.key, label: r.name ? `${r.name} (${r.key})` : r.key }));
+    // Real response shape: { result: { providers: [ { id: "aws", regions: [...] }, { id: "gcp", ... }, { id: "azure", ... } ] } }
+    // Cloudflare's own OpenAPI spec leaves each region entry untyped
+    // ("regions": [null] in the schema), and in practice each entry has
+    // turned out to be an object rather than a plain string - handled here
+    // by reading whichever of its own fields actually holds the region
+    // code, instead of assuming one specific shape.
+    const providers = (json.result && json.result.providers) || [];
+    const regions = [];
+    providers.forEach((p) => {
+      (p.regions || []).forEach((entry) => {
+        if (!entry) return;
+        const regionCode = typeof entry === "string" ? entry : entry.key || entry.name || entry.id || entry.region || entry.code || null;
+        if (!regionCode) return;
+        regions.push({ value: `${p.id}:${regionCode}`, label: `${p.id.toUpperCase()} - ${regionCode}` });
+      });
+    });
     return new Response(JSON.stringify({ success: true, regions }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: "CF_REGIONS_LIST_FAILED" }), { status: 500 });
+  }
+}
+
+// Reads a Worker's current settings so the panel can show what Placement
+// mode is actually in effect right now (rather than just letting the user
+// blindly set one) - GET on the same endpoint handleSetCfPlacement PATCHes.
+export async function handleGetCfScriptSettings(connectionId, scriptName, env) {
+  const settings = await getSettings(env);
+  const conn = settings.cfConnections.find((c) => c.id === connectionId);
+  if (!conn) return new Response(JSON.stringify({ success: false, error: "CF_CONNECTION_NOT_FOUND" }), { status: 404 });
+  try {
+    const resp = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(conn.accountId)}/workers/scripts/${encodeURIComponent(scriptName)}/settings`,
+      { headers: { Authorization: `Bearer ${conn.apiToken}` } }
+    );
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.success !== true) {
+      return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_UPDATE_FAILED" }), { status: 502 });
+    }
+    return new Response(JSON.stringify({ success: true, placement: (json.result && json.result.placement) || null }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ success: false, error: "CF_PLACEMENT_UPDATE_FAILED" }), { status: 500 });
   }
 }
 

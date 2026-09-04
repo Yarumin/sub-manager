@@ -6,18 +6,35 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outfile = path.join(__dirname, "..", "dist", "worker.js");
 
+// Runs a piece of JS text through esbuild on its own to strip its comments,
+// swapping any `${...}` template interpolations for placeholder tokens
+// first so the text still parses as plain JS, then restoring them
+// afterward. Used below for every chunk of JS embedded as a *string*
+// inside another file's template literal - esbuild's normal bundling pass
+// never looks inside string contents (it has no way to know "this string
+// happens to contain JS", and must not rewrite arbitrary string data), so
+// without this, comments/whitespace written inside such strings would
+// survive untouched all the way into the final worker.js bytes.
+function cleanEmbeddedJs(jsText) {
+  const interpolations = [];
+  const withPlaceholders = jsText.replace(/\$\{[^}]*\}/g, (match) => {
+    interpolations.push(match);
+    return `__SUBMANAGER_INTERP_${interpolations.length - 1}__`;
+  });
+  const cleaned = esbuild.transformSync(withPlaceholders, {
+    loader: "js",
+    legalComments: "none",
+    minifyWhitespace: true,
+    minifyIdentifiers: false,
+    minifySyntax: false,
+    target: "es2022"
+  }).code;
+  return cleaned.replace(/__SUBMANAGER_INTERP_(\d+)__/g, (_, i) => interpolations[Number(i)]);
+}
+
 // dashboardClient.js's payload is a big JS *string* (a template literal)
-// that gets shipped to the browser as the panel's client-side script -
-// esbuild bundles/transforms real JS statements, but it correctly never
-// touches the contents of a string literal (it has no way to know "this
-// string happens to contain JS", and it must not rewrite arbitrary string
-// data). That means comments and extra whitespace written inside that
-// template literal survive untouched all the way into the final worker.js
-// bytes, even after the normal comment-stripping pass below. This onLoad
-// hook pre-cleans just that one file's template literal (via its own
-// esbuild transform pass, with the single `${baseUrl}` interpolation
-// swapped for a placeholder token so it survives being parsed as plain JS,
-// then restored afterward) before the main bundle ever sees it.
+// that gets shipped to the browser as the panel's client-side script - see
+// cleanEmbeddedJs() above for why this needs its own pass.
 const cleanClientScriptPlugin = {
   name: "clean-client-script-comments",
   setup(build) {
@@ -27,18 +44,42 @@ const cleanClientScriptPlugin = {
       if (!match) {
         throw new Error("cleanClientScriptPlugin: could not locate the template literal in " + args.path);
       }
-      const PLACEHOLDER = "__SUBMANAGER_BASEURL_PLACEHOLDER__";
-      const innerWithPlaceholder = match[1].split("${baseUrl}").join(PLACEHOLDER);
-      const cleanedInner = esbuild.transformSync(innerWithPlaceholder, {
-        loader: "js",
-        legalComments: "none",
-        minifyWhitespace: true,
-        minifyIdentifiers: false,
-        minifySyntax: false,
-        target: "es2022"
-      }).code;
-      const restoredInner = cleanedInner.split(PLACEHOLDER).join("${baseUrl}");
-      const patched = original.slice(0, match.index) + "return `" + restoredInner + "`;\n}\n" + original.slice(match.index + match[0].length);
+      const cleanedInner = cleanEmbeddedJs(match[1]);
+      const patched = original.slice(0, match.index) + "return `" + cleanedInner + "`;\n}\n" + original.slice(match.index + match[0].length);
+      return { contents: patched, loader: "js" };
+    });
+  }
+};
+
+// dashboardShell.js's payload is an HTML *string* with its own inline
+// <script> block (the language-detection snippet that runs before first
+// paint) - same problem as above, just one level up: that <script> block's
+// contents are JS text sitting inside dashboardShell.js's own template
+// literal, so they need the same per-embedding cleanup pass. Every
+// <script>...</script> block found is cleaned independently and generically
+// (not hardcoded to one specific snippet), so this keeps working if more
+// inline scripts are ever added to the shell.
+const cleanShellInlineScriptsPlugin = {
+  name: "clean-shell-inline-script-comments",
+  setup(build) {
+    build.onLoad({ filter: /panel[\\/]dashboardShell\.js$/ }, (args) => {
+      const original = fs.readFileSync(args.path, "utf8");
+      const scriptBlockPattern = /(<script>)([\s\S]*?)(<\/script>)/g;
+      let patched = original;
+      let match;
+      const replacements = [];
+      while ((match = scriptBlockPattern.exec(original)) !== null) {
+        const inner = match[2];
+        // Skip the one <script> tag whose body is a template interpolation
+        // (the embedded client script itself, `${getDashboardClientScript(...)}`)
+        // rather than literal JS text - that one is cleaned separately by
+        // cleanClientScriptPlugin above, inside dashboardClient.js itself.
+        if (/^\s*\$\{[\s\S]*\}\s*$/.test(inner)) continue;
+        replacements.push({ full: match[0], cleaned: match[1] + cleanEmbeddedJs(inner) + match[3] });
+      }
+      replacements.forEach(({ full, cleaned }) => {
+        patched = patched.replace(full, cleaned);
+      });
       return { contents: patched, loader: "js" };
     });
   }
@@ -57,7 +98,7 @@ async function build() {
     minifyWhitespace: false,
     minifyIdentifiers: false,
     minifySyntax: false,
-    plugins: [cleanClientScriptPlugin],
+    plugins: [cleanClientScriptPlugin, cleanShellInlineScriptsPlugin],
     outfile,
     write: false
   });
