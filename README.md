@@ -1,4 +1,5 @@
 <h1 align="center">Sub Manager</h1>
+<img width="1920" height="2610" alt="sub-manager-image" src="https://github.com/user-attachments/assets/d8f231b9-45a2-4c71-94d4-10c1365c0ba6" />
 
 <p align="center">A panel for managing proxy subscriptions and configs on Cloudflare Workers</p>
 
